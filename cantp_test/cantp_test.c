@@ -90,6 +90,7 @@ int candrv_rx_task(cantp_context_t *ctx)
 		printf("RX rdlen=%ld", rlen);
 	}
 	fclose(rx_stream);
+	fclose(tx_stream);
 }
 
 static void candrv_tx_timer_cb(cbtimer_t *t)
@@ -110,6 +111,7 @@ static void candrv_tx_timer_cb(cbtimer_t *t)
 	} else {
 		printf("rlen = %ld\n", rlen);
 	}
+	fclose(rx_stream);
 }
 
 int cantp_can_tx(uint32_t id, uint8_t idt, uint8_t dlc, uint8_t *data)
@@ -190,7 +192,7 @@ int main(int argc, char **argv)
 
 	atomic_store(&cantp_result_status, CANTP_RESULT_WAITING);
 
-//	candrv_tx_delay = 10000;
+	candrv_tx_delay = atoi(argv[1]);
 	cantp_send(&cantp_ctx, 0xAAA, 0, data, 7);
 
 	while (atomic_load(&cantp_result_status) == CANTP_RESULT_WAITING) {
