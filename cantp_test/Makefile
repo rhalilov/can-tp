@@ -8,6 +8,8 @@ OUTPUT_PATH = ./build
 
 SRCS =	cantp_test.c \
 		cbtimer_lin.c \
+		fake_can_linux.c \
+		cantp_glue_lin.c \
 		../can-tp.c \
 
 LIBS = -lrt

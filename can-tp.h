@@ -220,4 +220,12 @@ int cantp_send(cantp_context_t *ctx,
 				uint8_t *data,
 				uint16_t len);
 
+/*
+ * void print_cantp_frame(cantp_frame_t cantp_frame)
+ *
+ * Should be externally implemented for different systems
+ *
+ */
+void print_cantp_frame(cantp_frame_t cantp_frame);
+
 #endif /* _CAN_TP_H_ */
