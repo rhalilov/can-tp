@@ -22,10 +22,10 @@ typedef struct cbtimer_s {
 	void *cb_params;
 } cbtimer_t;
 
-void cbtimer_set_cb(cbtimer_t *tim, void (*cb)(struct cbtimer_s *timer),
+int cbtimer_set_cb(cbtimer_t *tim, void (*cb)(struct cbtimer_s *timer),
 														void *cb_params);
-void cbtimer_set_name(cbtimer_t *tim, const char *name);
-void cbtimer_start(cbtimer_t *tim, long us);
+void cbtimer_set_name(cbtimer_t *tim, char *name);
+int cbtimer_start(cbtimer_t *tim, long us);
 void cbtimer_stop(cbtimer_t *tim);
 
 #endif /* _CBTIMER_LIN_H_ */

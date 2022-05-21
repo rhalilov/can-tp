@@ -10,6 +10,8 @@
 #include <stdint.h>
 #include <unistd.h>
 
+#include "cbtimer_lin.h"
+#include "fake_can_linux.h"
 #include "can-tp.h"
 
 enum cantp_result_status_e {
@@ -33,7 +35,29 @@ void print_cantp_frame(cantp_frame_t cantp_frame)
 	for (uint8_t i=0; i < 8; i++) {
 		printf("0x%02x ", cantp_frame.u8[i]);
 	}
-	printf("\n");
+	printf("\n");fflush(0);
+}
+
+int cantp_timer_start(void *timer, char *name, long tout_us)
+{
+	cbtimer_t *t;
+	t = (cbtimer_t *)timer;
+	fflush(0);
+	cbtimer_set_name(t, name);
+	return cbtimer_start(t, tout_us);
+}
+
+static void cantp_tx_t_cb(cbtimer_t *tim)
+{
+	cantp_context_t *ctx = (cantp_context_t *)(tim->cb_params);
+	cantp_tx_timer_cb(ctx);
+}
+
+void cantp_timer_stop(void *timer)
+{
+	cbtimer_t *t;
+	t = (cbtimer_t *)timer;
+	cbtimer_stop(t);
 }
 
 void cantp_result_cb(int result)
@@ -42,8 +66,16 @@ void cantp_result_cb(int result)
 	atomic_store(&cantp_result_status, CANTP_RESULT_RECEIVED);
 }
 
-void cantp_result_status_init(void)
+int cantp_can_tx(uint32_t id, uint8_t idt, uint8_t dlc, uint8_t *data)
 {
+	return fake_can_tx(id, idt, dlc, data);
+}
+
+void cantp_init(cantp_context_t *cantp_ctx)
+{
+	static cbtimer_t cantp_tx_timer;
+	cantp_set_timer_ptr(&cantp_tx_timer, &cantp_ctx->tx_state);
+	cbtimer_set_cb(&cantp_tx_timer, cantp_tx_t_cb, cantp_ctx);
 	atomic_store(&cantp_result_status, CANTP_RESULT_WAITING);
 }
 

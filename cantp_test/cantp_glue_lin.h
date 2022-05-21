@@ -9,7 +9,7 @@
 #define _CANTP_GLUE_LIN_H_
 
 void cantp_result_cb(int result);
-void cantp_result_status_init(void);
+void cantp_init(cantp_context_t *cantp_ctx);
 void cantp_wait_for_result(void);
 
 #endif /* _CANTP_GLUE_LIN_H_ */

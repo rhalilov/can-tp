@@ -154,7 +154,7 @@ static inline void cantp_set_timer_ptr(void *timer, cantp_rxtx_status_t *state)
  *
  *
  */
-void cantp_timer_start(void *timer, const char *name,  long tout_us);
+int cantp_timer_start(void *timer, char *name,  long tout_us);
 
 /*
  *

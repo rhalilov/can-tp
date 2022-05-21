@@ -50,7 +50,7 @@ int candrv_rx_task(void)
 	fake_can_phy_t can_frame;
 	ssize_t rlen = fread(can_frame.u8, 1, sizeof(fake_can_phy_t), rx_stream);
 	if (rlen == sizeof(fake_can_phy_t)) {
-		uint8_t tx_confirm = 1;
+		uint8_t tx_confirm = rlen;
 		ssize_t wlen = fwrite(&tx_confirm, 1, 1, tx_stream);
 
 		printf("Received %ld bytes", (long)rlen);
@@ -77,10 +77,10 @@ static void candrv_tx_timer_cb(cbtimer_t *t)
 	printf("Sending %ld bytes\n", sizeof(fake_can_phy_t));
 	ssize_t wlen = fwrite(can_frame.u8, 1, sizeof(fake_can_phy_t), tx_stream);
 	fclose(tx_stream);
-	printf("Waiting to confirm tx\n"); fflush(0);
+	printf("Waiting to confirm... \n"); fflush(0);//do not touch this line
 	uint8_t rx_confirm;
 	ssize_t rlen = fread(&rx_confirm, 1, 1, rx_stream);
-	if (rx_confirm == 1) {
+	if (rx_confirm == wlen) {
 		printf("Confirmed transmission of %ld bytes\n", (long)wlen); fflush(0);
 		fake_cantx_confirm_cb(t->cb_params);
 	} else {
@@ -104,10 +104,13 @@ int fake_can_init(void *params)
 {
 	if (pipe(can_tx_pipe)) {
 		fprintf(stderr, "Pipe failed.\n");
-		return EXIT_FAILURE;
+		return -1;
 	}
 	//setting up a fake timer that simulates the latency of
 	//the transmission of the CAN driver (data link layer)
-	cbtimer_set_cb(&candrv_tx_timer, candrv_tx_timer_cb, params);
+	if (cbtimer_set_cb(&candrv_tx_timer, candrv_tx_timer_cb, params) < 0) {
+		return -1;
+	}
 	cbtimer_set_name(&candrv_tx_timer, "CANDRV");
+	return 0;
 }

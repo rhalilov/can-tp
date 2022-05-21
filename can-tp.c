@@ -44,7 +44,7 @@ void cantp_tx_timer_cb(cantp_context_t *ctx)
 
 void cantp_cantx_confirm_cb(cantp_context_t *ctx)
 {
-	printf("cantp_cantx_success_cb:\n"); fflush(0);
+//	printf("cantp_cantx_success_cb:\n"); fflush(0);
 	switch(ctx->tx_state.state) {
 	case CANTP_STATE_SF_SENDING: {
 			cantp_timer_stop(ctx->tx_state.timer);
@@ -105,8 +105,10 @@ int cantp_send(cantp_context_t *ctx,
 		}
 		printf("Sending ");
 		print_cantp_frame(txframe);
-		cantp_timer_start(ctx->tx_state.timer, "CANTP_N_AS_TIMER_MS",
-													1000 * CANTP_N_AS_TIMER_MS);
+		if (cantp_timer_start(ctx->tx_state.timer, "CANTP_N_AS_TIMER_MS",
+													1000 * CANTP_N_AS_TIMER_MS) < 0) {
+			res = -1;
+		}
 		cantp_can_tx(id, idt, len + 1, txframe.u8);
 		ctx->tx_state.state = CANTP_STATE_SF_SENDING;
 	} else {
