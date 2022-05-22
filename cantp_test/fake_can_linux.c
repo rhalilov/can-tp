@@ -36,12 +36,12 @@ typedef union {
 
 fake_can_phy_t fake_can_phy;
 cbtimer_t candrv_tx_timer;
-long candrv_tx_delay = 1000;
+long candrv_tx_delay_us;
 int can_tx_pipe[2];
 int can_rx_pipe[2];
 static fake_can_phy_t can_frame;
 
-int candrv_rx_task(void)
+int fake_can_rx_task(void)
 {
 	FILE *rx_stream, *tx_stream;
 	rx_stream = fdopen(can_tx_pipe[0], "rb");
@@ -50,19 +50,21 @@ int candrv_rx_task(void)
 	fake_can_phy_t can_frame;
 	ssize_t rlen = fread(can_frame.u8, 1, sizeof(fake_can_phy_t), rx_stream);
 	if (rlen == sizeof(fake_can_phy_t)) {
+		//Sending back a confirmation
 		uint8_t tx_confirm = rlen;
 		ssize_t wlen = fwrite(&tx_confirm, 1, 1, tx_stream);
 
-		printf("Received %ld bytes", (long)rlen);
-		printf(" RX id=0x%08x idt=%d dlc=%d: 0x%02x 0x%02x 0x%02x 0x%02x "
+		printf("\033[0;33mCAN LL Receiver Received %ld bytes\033[0m ", (long)rlen);
+		printf("id=0x%08x idt=%d dlc=%d: 0x%02x 0x%02x 0x%02x 0x%02x "
 			"0x%02x 0x%02x 0x%02x 0x%02x\n",
 			can_frame.id, can_frame.idt, can_frame.dlc,
 			can_frame.data[0], can_frame.data[1], can_frame.data[2], can_frame.data[3],
 			can_frame.data[4], can_frame.data[5], can_frame.data[6], can_frame.data[7]);
 		fflush(0);
-//		cantp_rx_cb(can_frame.id, can_frame.idt, can_frame.dlc, can_frame.data, ctx);
+		//Send to to the transport/network layer Receiver L_Data.ind
+		fake_canrx_cb(can_frame.id, can_frame.idt, can_frame.dlc, can_frame.data);
 	} else {
-		printf("RX rdlen=%ld", rlen);
+		printf("RX rdlen=%ld\n", rlen);
 	}
 	fclose(rx_stream);
 	fclose(tx_stream);
@@ -74,14 +76,17 @@ static void candrv_tx_timer_cb(cbtimer_t *t)
 	tx_stream = fdopen(can_tx_pipe[1], "wb");
 	rx_stream = fdopen(can_tx_pipe[0], "rb");
 
-	printf("Sending %ld bytes\n", sizeof(fake_can_phy_t));
+	printf("CAN-LL Sender Sending %ld bytes\n", sizeof(fake_can_phy_t));
 	ssize_t wlen = fwrite(can_frame.u8, 1, sizeof(fake_can_phy_t), tx_stream);
 	fclose(tx_stream);
-	printf("Waiting to confirm... \n"); fflush(0);//do not touch this line
+	printf("CAN-LL Sender Waiting to confirm... \n"); fflush(0);//do not touch this line
 	uint8_t rx_confirm;
 	ssize_t rlen = fread(&rx_confirm, 1, 1, rx_stream);
 	if (rx_confirm == wlen) {
-		printf("Confirmed transmission of %ld bytes\n", (long)wlen); fflush(0);
+		//Sender L_Data.con
+		printf("CAN-LL Sender: Confirmed transmission of %ld bytes\n", (long)wlen); fflush(0);
+		//Sender L_Data.con: data link layer issues to the transport/network
+		//layer the reception of the CAN frame
 		fake_cantx_confirm_cb(t->cb_params);
 	} else {
 		printf("rlen = %ld confirm = %d\n", rlen, rx_confirm);
@@ -97,11 +102,15 @@ int fake_can_tx(uint32_t id, uint8_t idt, uint8_t dlc, uint8_t *data)
 	for (uint8_t i = 0; i < 8; i++) {
 		can_frame.data[i] = data[i];
 	}
-	cbtimer_start(&candrv_tx_timer, candrv_tx_delay);
+	printf("CAN-LL Sender ");
+	cbtimer_start(&candrv_tx_timer, candrv_tx_delay_us);
+	// follows at candrv_tx_timer_cb(cbtimer_t *t)
 }
 
-int fake_can_init(void *params)
+int fake_can_init(long tx_delay_us, void *params)
 {
+	candrv_tx_delay_us = tx_delay_us;
+
 	if (pipe(can_tx_pipe)) {
 		fprintf(stderr, "Pipe failed.\n");
 		return -1;
@@ -111,6 +120,6 @@ int fake_can_init(void *params)
 	if (cbtimer_set_cb(&candrv_tx_timer, candrv_tx_timer_cb, params) < 0) {
 		return -1;
 	}
-	cbtimer_set_name(&candrv_tx_timer, "CANDRV");
+	cbtimer_set_name(&candrv_tx_timer, "CAN-LL");
 	return 0;
 }

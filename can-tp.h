@@ -74,7 +74,7 @@ typedef struct __attribute__((packed)) {
 			union {
 				struct __attribute__((packed)) {
 					uint8_t :4;
-					uint8_t frame_t:4;
+					uint8_t n_pci_t:4;
 				};
 				struct __attribute__((packed)) {
 					uint8_t len:4;
@@ -106,7 +106,8 @@ typedef struct __attribute__((packed)) {
 typedef enum {
 	CANTP_STATE_IDOL	= 0,
 	CANTP_STATE_SF_SENDING,			//SF sent to CAN driver and waiting for response
-	CANTP_STATE_SF_SENT,			//SF sending successful
+//	CANTP_STATE_SF_SENT,			//SF sending successful
+	CANTP_STATE_FF_SENDING,			//SF sent to CAN driver and waiting for response
 	CANTP_STATE_FF_SENT,			//First frame sent
 	CANTP_STATE_FF_FC_WAIT,			//First frame sent but waiting for FC frame
 	CANTP_STATE_FC_RCVD,			//Flow control frame received
@@ -175,7 +176,7 @@ void cantp_timer_stop(void *timer);
 int cantp_can_tx(uint32_t id, uint8_t idt, uint8_t dlc, uint8_t *data);
 
 /*
- * This function should be called from CAN Driver (Physical Layer)
+ * This function should be called from the data link layer (CAN Driver)
  * in every successful transmission of a CAN Frame
  *
  */
@@ -184,19 +185,37 @@ void cantp_cantx_confirm_cb(cantp_context_t *ctx);
 /*
  * void cantp_result_cb(int result)
  *
- * This function is called by CAN-TP layer to inform the upper layer
- * protocols for the result of the transmission or reception
- * the result codes are listed above in CANTP_RESULT enum
+ * ISO 15765-2:2016 Sender N_USData.con
+ *
+ * This function is called by:
+ *  - CAN-TP (transport/network) layer to inform the session layer protocols
+ *  for the result of the transmission or reception of a CAN-TP message or
+ *  - when the some of the timers N_As, N_Bs or N_Cs has expired.
+ *
+ * The result codes are listed above in CANTP_RESULT enum
  * and are defined by ISO 15765-2:2016 8.3.7 <N_Result>
  *
  */
 void cantp_result_cb(int result);
 
 /*
+ * void cantp_canrx_cb(uint32_t id, uint8_t idt, uint8_t dlc,
+ * 							uint8_t *data, cantp_context_t *ctx)
+ *
+ * ISO 15765-2:2016 Receiver N_USData.ind
+ *
+ * This function is called by data link layer (CAN driver) when
+ * a valid CAN frame has being received (Receiver L_Data.ind) and
+ * after analyzing the CAN frame to recognize when it is a part of
+ * data receiving flow or it is a part of data sending flow
+ * (Flow Control frame) it should call:
+ *  - Receiver N_USDataFF.ind in case of receiving First Frame (FF) or
+ *  - Receiver N_USData.ind in case of receiving Single Frame (SF) or
+ * last Consecutive Frame
  *
  */
-void cantp_rx_cb(uint32_t id, uint8_t idt, uint8_t dlc, uint8_t *data,
-					cantp_context_t *ctx);
+void cantp_canrx_cb(uint32_t id, uint8_t idt, uint8_t dlc,
+								uint8_t *data, cantp_context_t *ctx);
 
 /*
  * cantp_tx_timer_cb(cantp_context_t *ctx)
