@@ -50,6 +50,8 @@ enum CANTP_RESULT_ENUM {
 									//FlowControl N_PDU
 #define CANTP_N_CS_TIMER_MS	1000	//Time until transmission of the next
 									//ConsecutiveFrame N_PDU
+#define CANTP_N_AR_TIMER_MS	1000
+#define CANTP_N_BR_TIMER_MS	1000
 
 #define CANTP_FC_STARUS_CTS		0
 #define CANTP_FC_STARUS_WAIT	1
@@ -132,33 +134,39 @@ typedef struct cantp_rxtx_state_s {
 	void *timer;
 } cantp_rxtx_status_t;
 
-typedef struct cantp_context_s {
-	cantp_rxtx_status_t rx_state;
-	cantp_rxtx_status_t tx_state;
-	void (*timer_start)(void *timer, long tout_us);
-	void (*timer_stop)(void *timer);
-} cantp_context_t;
-
-
 static inline void cantp_ff_len_set(cantp_frame_t *cantp_ff, uint16_t len)
 {
 	cantp_ff->ff.len_h = CANTP_FF_LEN_H(len);
 	cantp_ff->ff.len_l = CANTP_FF_LEN_L(len);
 }
 
+static inline uint16_t cantp_ff_len_get(cantp_frame_t *cantp_ff)
+{
+	return (cantp_ff->ff.len_h << 8) + (cantp_ff->ff.len_l);
+}
+
+static inline void cantp_rx_params_init(cantp_rxtx_status_t *ctx,
+											uint8_t rx_bs, uint8_t rx_st)
+{
+	//TODO: Do some checks here
+	ctx->bs = rx_bs;
+	ctx->st = rx_st;
+}
+
 static inline void cantp_set_timer_ptr(void *timer, cantp_rxtx_status_t *state)
 {
 	state->timer = timer;
+//	printf("cantp_timer(2) = %x\n", state->timer);
 }
 
 /*
- *
+ * int cantp_timer_start(void *timer, char *name,  long tout_us);
  *
  */
 int cantp_timer_start(void *timer, char *name,  long tout_us);
 
 /*
- *
+ * void cantp_timer_stop(void *timer);
  *
  */
 void cantp_timer_stop(void *timer);
@@ -180,7 +188,7 @@ int cantp_can_tx(uint32_t id, uint8_t idt, uint8_t dlc, uint8_t *data);
  * in every successful transmission of a CAN Frame
  *
  */
-void cantp_cantx_confirm_cb(cantp_context_t *ctx);
+void cantp_cantx_confirm_cb(cantp_rxtx_status_t *ctx);
 
 /*
  * void cantp_result_cb(int result)
@@ -199,41 +207,81 @@ void cantp_cantx_confirm_cb(cantp_context_t *ctx);
 void cantp_result_cb(int result);
 
 /*
+ * void cantp_received_cb(cantp_rxtx_status_t *ctx,
+ * 			uint32_t id, uint8_t idt, uint8_t *data, uint16_t len);
+ *
+ * This function should be implemented by session layer to receive
+ * the message from CAN-TP (transport/network layer)
+ *
+ */
+void cantp_received_cb(cantp_rxtx_status_t *ctx,
+			uint32_t id, uint8_t idt, uint8_t *data, uint16_t len);
+
+/*
  * void cantp_canrx_cb(uint32_t id, uint8_t idt, uint8_t dlc,
- * 							uint8_t *data, cantp_context_t *ctx)
+ * 							uint8_t *data, cantp_rxtx_status_t *ctx)
  *
  * ISO 15765-2:2016 Receiver N_USData.ind
  *
  * This function is called by data link layer (CAN driver) when
- * a valid CAN frame has being received (Receiver L_Data.ind) and
- * after analyzing the CAN frame to recognize when it is a part of
- * data receiving flow or it is a part of data sending flow
- * (Flow Control frame) it should call:
- *  - Receiver N_USDataFF.ind in case of receiving First Frame (FF) or
- *  - Receiver N_USData.ind in case of receiving Single Frame (SF) or
- * last Consecutive Frame
+ * a valid CAN frame has been received (Receiver L_Data.ind).
+ * It analyzes the CAN frame if it is part of data receiving flow
+ * or data sending flow (Flow Control frame).
+ * - In case of CAN frame is a part of data receiving flow and is a
+ * Single Frame or Last Consecutive Frame the function should call
+ * the session layer to inform for the completion of receiving of
+ * the CAN-TP message. This is done by calling:
+ * void cantp_received_cb(cantp_rxtx_status_t *ctx,
+ *		uint32_t id, uint8_t idt, uint8_t *data, uint16_t len);
+ * - In case of CAN frame is a part of data sending flow (Flow Control
+ * frame) it should set the previously defined parameters (Block Size
+ * and STmin) that depend on characteristics of the receiving hardware
+ * and software.
  *
  */
 void cantp_canrx_cb(uint32_t id, uint8_t idt, uint8_t dlc,
-								uint8_t *data, cantp_context_t *ctx);
+								uint8_t *data, cantp_rxtx_status_t *ctx);
+
 
 /*
- * cantp_tx_timer_cb(cantp_context_t *ctx)
+ * void cantp_rcvd_ff_cb(cantp_rxtx_status_t *ctx,
+ *			uint32_t id, uint8_t idt, uint8_t *data, uint16_t len)
  *
- * Should be called on timer expire event
+ * This function should be implemented from the Session Layer and
+ * will be called from CAN-TP (transport/network) layer to inform it
+ * from a beginning of a reception of a segmented message with a
+ * given length coming from given "id" and "idt"
+ *
+ * The session layer can perform some tasks as dedicate some buffers
+ * for the data etc.
+ */
+void cantp_rcvd_ff_cb(cantp_rxtx_status_t *ctx,
+			uint32_t id, uint8_t idt, uint8_t *data, uint16_t len);
+
+/*
+ * cantp_tx_timer_cb(cantp_rxtx_status_t *ctx)
+ *
+ * Should be called on sender timer expire event
  *
  */
-void cantp_tx_timer_cb(cantp_context_t *ctx);
+void cantp_tx_timer_cb(cantp_rxtx_status_t *ctx);
 
 /*
- * can_tp_send(cantp_context_t *cantp_ctx,
+ * void cantp_rx_timer_cb(cantp_rxtx_status_t *ctx)
+ *
+ * Should be called on receiver timer expire event
+ */
+void cantp_rx_timer_cb(cantp_rxtx_status_t *ctx);
+
+/*
+ * can_tp_send(cantp_rxtx_status_t *cantp_ctx,
  * 				uint32_t id,
  * 				uint8_t idt,
  * 				uint8_t *data,
  * 				uint16_t len)
  *
  */
-int cantp_send(cantp_context_t *ctx,
+int cantp_send(cantp_rxtx_status_t *ctx,
 				uint32_t id,
 				uint8_t idt,
 				uint8_t *data,

@@ -9,6 +9,6 @@
 #define _CANTP_GLUE_LIN_H_
 
 void cantp_result_cb(int result);
-void cantp_init(cantp_context_t *cantp_ctx);
+void cantp_tx_t_cb(cbtimer_t *tim);
 
 #endif /* _CANTP_GLUE_LIN_H_ */

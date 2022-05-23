@@ -14,27 +14,30 @@
 
 #include "can-tp.h"
 
-void cantp_tx_timer_cb(cantp_context_t *ctx)
+void cantp_tx_timer_cb(cantp_rxtx_status_t *ctx)
 {
-	switch (ctx->tx_state.state) {
+	printf("CAN-TP Sender: ");
+	//stopping N_As timer
+	cantp_timer_stop(ctx->timer);
+	switch (ctx->state) {
 	case CANTP_STATE_SF_SENDING: {
-			//stopping N_As timer
-			cantp_timer_stop(ctx->tx_state.timer);
-			ctx->tx_state.state = CANTP_STATE_IDOL;
+//			//stopping N_As timer
+//			cantp_timer_stop(ctx->timer);
+			ctx->state = CANTP_STATE_IDOL;
 			cantp_result_cb(CANTP_RESULT_N_TIMEOUT_As);
 		}
 		break;
 	case CANTP_STATE_FF_SENT: {
 			//stopping N_As timer
-			cantp_timer_stop(ctx->tx_state.timer);
-			ctx->tx_state.state = CANTP_STATE_IDOL;
+//			cantp_timer_stop(ctx->timer);
+			ctx->state = CANTP_STATE_IDOL;
 			cantp_result_cb(CANTP_RESULT_N_TIMEOUT_As);
 		}
 		break;
 	case CANTP_STATE_FF_FC_WAIT: {
 			//stopping N_Bs timer
-			cantp_timer_stop(ctx->tx_state.timer);
-			ctx->tx_state.state = CANTP_STATE_IDOL;
+//			cantp_timer_stop(ctx->timer);
+			ctx->state = CANTP_STATE_IDOL;
 			cantp_result_cb(CANTP_RESULT_N_TIMEOUT_Bs);
 		}
 		break;
@@ -42,12 +45,18 @@ void cantp_tx_timer_cb(cantp_context_t *ctx)
 
 }
 
-void cantp_cantx_confirm_cb(cantp_context_t *ctx)
+void cantp_rx_timer_cb(cantp_rxtx_status_t *ctx)
 {
-//	printf("cantp_cantx_success_cb:\n"); fflush(0);
-	switch(ctx->tx_state.state) {
+	printf("\033[0;33mCAN-TP Receiver: \033[0m");
+	cantp_timer_stop(ctx->timer);
+}
+
+void cantp_cantx_confirm_cb(cantp_rxtx_status_t *ctx)
+{
+//	printf("cantp_cantx_success_cb:\n");
+	switch(ctx->state) {
 	case CANTP_STATE_SF_SENDING: {
-			cantp_timer_stop(ctx->tx_state.timer);
+			cantp_timer_stop(ctx->timer);
 			cantp_result_cb(CANTP_RESULT_N_OK);
 		} break;
 	case CANTP_STATE_FF_SENDING: {
@@ -55,16 +64,18 @@ void cantp_cantx_confirm_cb(cantp_context_t *ctx)
 			//that the FF has being acknowledged
 			//ISO 15765-2:2016 Figure 11 step(Key) 2
 			//so we are stopping N_As timer
-			cantp_timer_stop(ctx->tx_state.timer);
+//			printf("CAN-TP Sender: "); fflush(0);
+			cantp_timer_stop(ctx->timer); fflush(0);
 			//starting new timer for receiving Flow Control frame
-			cantp_timer_start(ctx->tx_state.timer, "CANTP_N_BS_TIMER_MS",
-											1000 * CANTP_N_BS_TIMER_MS);
-			ctx->tx_state.state = CANTP_STATE_FF_SENT;
+//			printf("CAN-TP Sender: "); fflush(0);
+			cantp_timer_start(ctx->timer, "N_Bs",
+									1000 * CANTP_N_BS_TIMER_MS); fflush(0);
+			ctx->state = CANTP_STATE_FF_SENT;
 			//now we are waiting for Flow Control frame
 		} break;
 	case CANTP_STATE_FF_SENT: {
 			//stopping N-Bs timer
-			cantp_timer_stop(ctx->tx_state.timer);
+			cantp_timer_stop(ctx->timer);
 
 		} break;
 	case CANTP_STATE_FC_RCVD:
@@ -77,36 +88,52 @@ void cantp_canrx_cb(uint32_t id,
 					uint8_t idt,
 					uint8_t dlc,
 					uint8_t *data,
-					cantp_context_t *ctx)
+					cantp_rxtx_status_t *ctx)
 {
 	//TODO: We need to make some ID checks here
-	printf("\033[0;33mCAN-TP Receiver Received ");
 
 	//TODO: check validity of dlc
 	cantp_frame_t cantp_rx_frame;
 	for (uint8_t i=0; i < dlc; i++) {
 		cantp_rx_frame.u8[i] = data[i];
 	}
-	print_cantp_frame(cantp_rx_frame);
+	printf("\033[0;33mCAN-TP Receiver: "
+//			"Received (ID=0x%06x IDT=%d DLC=%d) ",
+//			id, idt, dlc
+			);
+	print_cantp_frame(cantp_rx_frame); fflush(0);
 	switch (cantp_rx_frame.n_pci_t) {
 	case CANTP_SINGLE_FRAME: {
-
+			//the data receiving flow here isn't started any timers
+			//and doesn't need to do anything else than present the
+			//received data to the Session Layer (Receiver N_USData.ind)
+			cantp_received_cb(ctx, id, idt,
+					cantp_rx_frame.sf.d, cantp_rx_frame.sf.len);
 		} break;
 	case CANTP_FIRST_FRAME: {
-
+			//Here we have more things to do.
+			//Starting N_Br timer
+			ctx->id = id;
+			ctx->idt = idt;
+//			printf("------------------------1\n"); fflush(0);
+			printf("\033[0;33mCAN-TP Receiver: \033[0m");
+			if (cantp_timer_start(ctx->timer, "N_Br",
+									1000 * CANTP_N_BR_TIMER_MS) < 0 ) {
+				printf("\033[0;33mCAN-TP Receiver: Error setting timer\033[0m");
+				fflush(0);
+				return;
+			}
+			//store some connection parameters
+			printf("--CANTP_FIRST_FRAME---%02x %02x\n",
+				cantp_rx_frame.ff.len_h, cantp_rx_frame.ff.len_l);fflush(0);
+//			printf("------------------------2\n"); fflush(0);
+			cantp_rcvd_ff_cb(ctx, id, idt, cantp_rx_frame.ff.d,
+							cantp_ff_len_get(&cantp_rx_frame));
 		} break;
 	}
-	switch (ctx->tx_state.state) {
-	case CANTP_STATE_FF_FC_WAIT: {
-
-		}
-		break;
-	default:
-		break;
-	} //switch (ctx->tx_state.state)
 }
 
-int cantp_send	(cantp_context_t *ctx,
+int cantp_send	(cantp_rxtx_status_t *ctx,
 				uint32_t id,
 				uint8_t idt,
 				uint8_t *data,
@@ -114,7 +141,7 @@ int cantp_send	(cantp_context_t *ctx,
 {
 	int res;
 	cantp_frame_t txframe;
-	printf("CAN-TP Sender Sending ");
+	printf("CAN-TP Sender: Sending ");
 	if (len <= CANTP_SF_NUM_DATA_BYTES) {
 		//sending Single Frame
 		txframe.sf.len = len;
@@ -124,32 +151,32 @@ int cantp_send	(cantp_context_t *ctx,
 		}
 		print_cantp_frame(txframe);
 		printf("CAN-TP Sender ");
-		if (cantp_timer_start(ctx->tx_state.timer, "CANTP_N_AS_TIMER_MS",
+		if (cantp_timer_start(ctx->timer, "N_As",
 											1000 * CANTP_N_AS_TIMER_MS) < 0) {
 			res = -1;
-		}
+		}; fflush(0);
 		cantp_can_tx(id, idt, len + 1, txframe.u8);
-		ctx->tx_state.state = CANTP_STATE_SF_SENDING;
+		ctx->state = CANTP_STATE_SF_SENDING;
 	} else {
 		//we need to send segmented data
 		//so first we are sending First Frame
-		ctx->tx_state.id = id;
-		ctx->tx_state.idt = idt;
-		ctx->tx_state.len = len;
-		ctx->tx_state.data = data;
+		ctx->id = id;
+		ctx->idt = idt;
+		ctx->len = len;
+		ctx->data = data;
 		txframe.n_pci_t = CANTP_FIRST_FRAME;
 		cantp_ff_len_set(&txframe, len);
 		for (uint8_t i = 0; i < CANTP_FF_NUM_DATA_BYTES; i++) {
 			txframe.ff.d[i] = data[i];
 		}
 		print_cantp_frame(txframe);
-		printf("CAN-TP Sender ");
-		if (cantp_timer_start(ctx->tx_state.timer, "CANTP_N_AS_TIMER_MS",
+		printf("CAN-TP Sender: ");
+		if (cantp_timer_start(ctx->timer, "N_As",
 											1000 * CANTP_N_AS_TIMER_MS) < 0) {
 			res = -1;
-		}
+		}; fflush(0);
 		cantp_can_tx(id, idt, 8, txframe.u8);
-		ctx->tx_state.state = CANTP_STATE_FF_SENDING;
+		ctx->state = CANTP_STATE_FF_SENDING;
 	}
 //	ctx->start_tx_task(ctx);
 	return res;

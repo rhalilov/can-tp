@@ -41,7 +41,7 @@ int can_tx_pipe[2];
 int can_rx_pipe[2];
 static fake_can_phy_t can_frame;
 
-int fake_can_rx_task(void)
+int fake_can_rx_task(void *params)
 {
 	FILE *rx_stream, *tx_stream;
 	rx_stream = fdopen(can_tx_pipe[0], "rb");
@@ -54,7 +54,7 @@ int fake_can_rx_task(void)
 		uint8_t tx_confirm = rlen;
 		ssize_t wlen = fwrite(&tx_confirm, 1, 1, tx_stream);
 
-		printf("\033[0;33mCAN LL Receiver Received %ld bytes\033[0m ", (long)rlen);
+		printf("\033[0;33mCAN-LL Receiver: Received %ld bytes\033[0m ", (long)rlen);
 		printf("id=0x%08x idt=%d dlc=%d: 0x%02x 0x%02x 0x%02x 0x%02x "
 			"0x%02x 0x%02x 0x%02x 0x%02x\n",
 			can_frame.id, can_frame.idt, can_frame.dlc,
@@ -62,7 +62,7 @@ int fake_can_rx_task(void)
 			can_frame.data[4], can_frame.data[5], can_frame.data[6], can_frame.data[7]);
 		fflush(0);
 		//Send to to the transport/network layer Receiver L_Data.ind
-		fake_canrx_cb(can_frame.id, can_frame.idt, can_frame.dlc, can_frame.data);
+		fake_canrx_cb(can_frame.id, can_frame.idt, can_frame.dlc, can_frame.data, params);
 	} else {
 		printf("RX rdlen=%ld\n", rlen);
 	}
@@ -76,11 +76,12 @@ static void candrv_tx_timer_cb(cbtimer_t *t)
 	tx_stream = fdopen(can_tx_pipe[1], "wb");
 	rx_stream = fdopen(can_tx_pipe[0], "rb");
 
-	printf("CAN-LL Sender Sending %ld bytes\n", sizeof(fake_can_phy_t));
+	printf("CAN-LL Sender: Sending %ld bytes\n", sizeof(fake_can_phy_t));
 	ssize_t wlen = fwrite(can_frame.u8, 1, sizeof(fake_can_phy_t), tx_stream);
 	fclose(tx_stream);
-	printf("CAN-LL Sender Waiting to confirm... \n"); fflush(0);//do not touch this line
-	uint8_t rx_confirm;
+	printf("CAN-LL Sender: Waiting to confirm... \n"); fflush(0);//do not touch this line
+	usleep(1000);
+	uint8_t rx_confirm = 0;
 	ssize_t rlen = fread(&rx_confirm, 1, 1, rx_stream);
 	if (rx_confirm == wlen) {
 		//Sender L_Data.con
@@ -102,7 +103,7 @@ int fake_can_tx(uint32_t id, uint8_t idt, uint8_t dlc, uint8_t *data)
 	for (uint8_t i = 0; i < 8; i++) {
 		can_frame.data[i] = data[i];
 	}
-	printf("CAN-LL Sender ");
+	printf("CAN-LL Sender: ");
 	cbtimer_start(&candrv_tx_timer, candrv_tx_delay_us);
 	// follows at candrv_tx_timer_cb(cbtimer_t *t)
 }

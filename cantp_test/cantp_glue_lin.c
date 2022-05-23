@@ -37,9 +37,9 @@ int cantp_timer_start(void *timer, char *name, long tout_us)
 	return cbtimer_start(t, tout_us);
 }
 
-static void cantp_tx_t_cb(cbtimer_t *tim)
+void cantp_tx_t_cb(cbtimer_t *tim)
 {
-	cantp_context_t *ctx = (cantp_context_t *)(tim->cb_params);
+	cantp_rxtx_status_t *ctx = (cantp_rxtx_status_t *)(tim->cb_params);
 	cantp_tx_timer_cb(ctx);
 }
 
@@ -53,11 +53,4 @@ void cantp_timer_stop(void *timer)
 int cantp_can_tx(uint32_t id, uint8_t idt, uint8_t dlc, uint8_t *data)
 {
 	return fake_can_tx(id, idt, dlc, data);
-}
-
-void cantp_init(cantp_context_t *cantp_ctx)
-{
-	static cbtimer_t cantp_tx_timer;
-	cantp_set_timer_ptr(&cantp_tx_timer, &cantp_ctx->tx_state);
-	cbtimer_set_cb(&cantp_tx_timer, cantp_tx_t_cb, cantp_ctx);
 }

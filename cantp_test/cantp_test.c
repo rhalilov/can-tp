@@ -31,17 +31,17 @@ static const char *cantp_result_enum_str[] = {
 		FOREACH_CANTP_RESULT(GENERATE_STRING)
 };
 
-static cantp_context_t cantp_ctx;
+static cantp_rxtx_status_t cantp_sndr_ctx;
 atomic_int cantp_result_status;
 
 void fake_cantx_confirm_cb(void *params)
 {
-	cantp_cantx_confirm_cb((cantp_context_t *)params);
+	cantp_cantx_confirm_cb((cantp_rxtx_status_t *)params);
 }
 
-void fake_canrx_cb(uint32_t id, uint8_t idt, uint8_t dlc, uint8_t *data)
+void fake_canrx_cb(uint32_t id, uint8_t idt, uint8_t dlc, uint8_t *data, void *params)
 {
-	cantp_canrx_cb(id, idt, dlc, data, &cantp_ctx);
+	cantp_canrx_cb(id, idt, dlc, data, params);
 }
 
 void cantp_result_cb(int result)
@@ -56,6 +56,45 @@ void cantp_result_cb(int result)
 	atomic_store(&cantp_result_status, CANTP_RESULT_RECEIVED);
 }
 
+void cantp_received_cb(cantp_rxtx_status_t *ctx,
+			uint32_t id, uint8_t idt, uint8_t *data, uint16_t len)
+{
+	printf("\033[0;33mCAN-SL Receiver Received "
+			"from ID=0x%06x IDT=%d len=%d bytes:\033[0m ", id, idt, len);
+	for (uint16_t i = 0; i < len; i++) {
+		printf("0x%02x ", data[i]);
+	}
+	printf("\n"); fflush(0);
+}
+
+void cantp_rcvd_ff_cb(cantp_rxtx_status_t *ctx,
+			uint32_t id, uint8_t idt, uint8_t *data, uint16_t len)
+{
+	printf("\033[0;33mCAN-SL Receiver Received First Frame "
+			"from ID=0x%06x IDT=%d len=%d bytes:\033[0m \n", id, idt, len);
+	fflush(0);
+
+}
+
+static void cantp_rx_t_cb(cbtimer_t *tim)
+{
+	cantp_rxtx_status_t *ctx = (cantp_rxtx_status_t *)(tim->cb_params);
+	cantp_rx_timer_cb(ctx);
+}
+
+void receiver_task(uint8_t rx_bs, uint8_t rx_st)
+{
+	printf("\033[0;33mReceiver Task START\033[0m\n");
+	static cantp_rxtx_status_t rcvr_state;
+	static cbtimer_t cantp_rx_timer;
+
+	cantp_rx_params_init(&rcvr_state, rx_bs, rx_st);
+	cantp_set_timer_ptr(&cantp_rx_timer, &rcvr_state);
+	cbtimer_set_cb(&cantp_rx_timer, cantp_rx_t_cb, &rcvr_state);
+
+	fake_can_rx_task(&rcvr_state);
+}
+
 int main(int argc, char **argv)
 {
 	long candrv_tx_delay = 1000;
@@ -63,13 +102,12 @@ int main(int argc, char **argv)
 		candrv_tx_delay = atoi(argv[1]);
 		printf("candrv_tx_delay = %ldμs\n", candrv_tx_delay);
 	}
-	fake_can_init(candrv_tx_delay, &cantp_ctx);
+	fake_can_init(candrv_tx_delay, &cantp_sndr_ctx);
 
 	pid_t pid = fork();
 	if (pid == (pid_t) 0) {
 		//This is the child process.
-//		close(can_tx_pipe[1]);//Close other end first.
-		fake_can_rx_task();
+		receiver_task(0, 0);
 		printf("END child\n"); fflush(0);
 		return EXIT_SUCCESS;
 	} else if (pid < (pid_t) 0) {
@@ -77,23 +115,25 @@ int main(int argc, char **argv)
 		return EXIT_FAILURE;
 	}
 //	printf("pid = %d\n", pid);
-//	close(can_tx_pipe[0]);	//Close other end first.
 
 	atomic_store(&cantp_result_status, CANTP_RESULT_WAITING);
 
-	uint16_t dlen = 7;
+	uint16_t dlen = 16;
 	uint8_t *data = malloc(dlen);
 	for (uint16_t i = 0; i < dlen; i++) {
-		data[i] = (uint8_t)(0xff & i);
+		data[i] = (uint8_t)(0xff & i) + 1;
 	}
 
-	cantp_init(&cantp_ctx);
+	static cbtimer_t cantp_tx_timer;
+	cantp_set_timer_ptr(&cantp_tx_timer, &cantp_sndr_ctx);
+	cbtimer_set_cb(&cantp_tx_timer, cantp_tx_t_cb, &cantp_sndr_ctx);
 
-	cantp_send(&cantp_ctx, 0xAAA, 0, data, dlen);
+	cantp_send(&cantp_sndr_ctx, 0xAAA, 0, data, dlen);
 
 	while (atomic_load(&cantp_result_status) == CANTP_RESULT_WAITING) {
 		usleep(1000);
 	}
+	sleep(3);
 	kill(pid, SIGHUP);
 	printf("EndMain\n");fflush(0);
 	return 0;
