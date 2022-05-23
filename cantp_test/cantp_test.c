@@ -57,10 +57,10 @@ void cantp_result_cb(int result)
 }
 
 void cantp_received_cb(cantp_rxtx_status_t *ctx,
-			uint32_t id, uint8_t idt, uint8_t *data, uint16_t len)
+					uint32_t id, uint8_t idt, uint8_t *data, uint8_t len)
 {
 	printf("\033[0;33mCAN-SL Receiver Received "
-			"from ID=0x%06x IDT=%d len=%d bytes:\033[0m ", id, idt, len);
+			"from ID=0x%06x IDT=%d :\033[0m ", id, idt);
 	for (uint16_t i = 0; i < len; i++) {
 		printf("0x%02x ", data[i]);
 	}
@@ -71,7 +71,12 @@ void cantp_rcvd_ff_cb(cantp_rxtx_status_t *ctx,
 			uint32_t id, uint8_t idt, uint8_t *data, uint16_t len)
 {
 	printf("\033[0;33mCAN-SL Receiver Received First Frame "
-			"from ID=0x%06x IDT=%d len=%d bytes:\033[0m \n", id, idt, len);
+			"from ID=0x%06x IDT=%d CAN-TP Message LEN=%d bytes:\033[0m \n",
+			id, idt, ctx->len);
+	for (uint16_t i; i < len; i++) {
+		printf("0x%02x ", data[i]);
+	}
+	putchar('\n');
 	fflush(0);
 
 }
@@ -82,11 +87,14 @@ static void cantp_rx_t_cb(cbtimer_t *tim)
 	cantp_rx_timer_cb(ctx);
 }
 
-void receiver_task(uint8_t rx_bs, uint8_t rx_st)
+void receiver_task(uint32_t id, uint8_t idt, uint8_t rx_bs, uint8_t rx_st)
 {
 	printf("\033[0;33mReceiver Task START\033[0m\n");
-	static cantp_rxtx_status_t rcvr_state;
+	static cantp_rxtx_status_t rcvr_state = { 0 };
 	static cbtimer_t cantp_rx_timer;
+
+	rcvr_state.id = id;
+	rcvr_state.idt = idt;
 
 	cantp_rx_params_init(&rcvr_state, rx_bs, rx_st);
 	cantp_set_timer_ptr(&cantp_rx_timer, &rcvr_state);
@@ -107,7 +115,7 @@ int main(int argc, char **argv)
 	pid_t pid = fork();
 	if (pid == (pid_t) 0) {
 		//This is the child process.
-		receiver_task(0, 0);
+		receiver_task(0xbbb, 0, 0, 0);
 		printf("END child\n"); fflush(0);
 		return EXIT_SUCCESS;
 	} else if (pid < (pid_t) 0) {
@@ -133,7 +141,6 @@ int main(int argc, char **argv)
 	while (atomic_load(&cantp_result_status) == CANTP_RESULT_WAITING) {
 		usleep(1000);
 	}
-	sleep(3);
 	kill(pid, SIGHUP);
 	printf("EndMain\n");fflush(0);
 	return 0;

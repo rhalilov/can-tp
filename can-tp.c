@@ -113,9 +113,6 @@ void cantp_canrx_cb(uint32_t id,
 	case CANTP_FIRST_FRAME: {
 			//Here we have more things to do.
 			//Starting N_Br timer
-			ctx->id = id;
-			ctx->idt = idt;
-//			printf("------------------------1\n"); fflush(0);
 			printf("\033[0;33mCAN-TP Receiver: \033[0m");
 			if (cantp_timer_start(ctx->timer, "N_Br",
 									1000 * CANTP_N_BR_TIMER_MS) < 0 ) {
@@ -124,11 +121,36 @@ void cantp_canrx_cb(uint32_t id,
 				return;
 			}
 			//store some connection parameters
-			printf("--CANTP_FIRST_FRAME---%02x %02x\n",
-				cantp_rx_frame.ff.len_h, cantp_rx_frame.ff.len_l);fflush(0);
-//			printf("------------------------2\n"); fflush(0);
+			ctx->len = cantp_ff_len_get(&cantp_rx_frame);
+			ctx->index = 0;
+			ctx->bl_index = 0;
 			cantp_rcvd_ff_cb(ctx, id, idt, cantp_rx_frame.ff.d,
-							cantp_ff_len_get(&cantp_rx_frame));
+													CANTP_FF_NUM_DATA_BYTES);
+			ctx->index = CANTP_FF_NUM_DATA_BYTES;
+			printf("\033[0;33mCAN-TP Receiver: \033[0m");
+			cantp_timer_stop(ctx->timer);
+			cantp_frame_t rcvr_tx_frame = { 0 };
+			rcvr_tx_frame.n_pci_t = CANTP_FLOW_CONTROLL;
+			rcvr_tx_frame.fc.bs = ctx->bs;
+			rcvr_tx_frame.fc.st = ctx->st;
+			rcvr_tx_frame.fc.fs = CANTP_FC_FLOW_STATUS_CTS;
+			ctx->state = CANTP_STATE_FC_SENDING;
+			printf("\033[0;33mCAN-TP Receiver Sending: \033[0m");
+			print_cantp_frame(rcvr_tx_frame);
+			if (cantp_can_tx(ctx->id, ctx->idt, 8, rcvr_tx_frame.u8,
+											1000 * CANTP_N_AR_TIMER_MS) < 0) {
+				//TODO: Timeout!!!
+				return;
+			}
+			printf("-----------done----------\n");fflush(0);
+			printf("\033[0;33mCAN-TP Receiver: \033[0m");
+			if (cantp_timer_start(ctx->timer, "N_Cr",
+									1000 * CANTP_N_CR_TIMER_MS) < 0 ) {
+				printf("\033[0;33mCAN-TP Receiver: Error setting timer\033[0m");
+				fflush(0);
+				return;
+			}
+
 		} break;
 	}
 }
@@ -155,7 +177,7 @@ int cantp_send	(cantp_rxtx_status_t *ctx,
 											1000 * CANTP_N_AS_TIMER_MS) < 0) {
 			res = -1;
 		}; fflush(0);
-		cantp_can_tx(id, idt, len + 1, txframe.u8);
+		cantp_can_tx_nb(id, idt, len + 1, txframe.u8);
 		ctx->state = CANTP_STATE_SF_SENDING;
 	} else {
 		//we need to send segmented data
@@ -175,7 +197,7 @@ int cantp_send	(cantp_rxtx_status_t *ctx,
 											1000 * CANTP_N_AS_TIMER_MS) < 0) {
 			res = -1;
 		}; fflush(0);
-		cantp_can_tx(id, idt, 8, txframe.u8);
+		cantp_can_tx_nb(id, idt, 8, txframe.u8);
 		ctx->state = CANTP_STATE_FF_SENDING;
 	}
 //	ctx->start_tx_task(ctx);

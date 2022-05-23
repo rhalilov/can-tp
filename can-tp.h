@@ -44,6 +44,15 @@ enum CANTP_RESULT_ENUM {
 	FOREACH_CANTP_RESULT(GENERATE_ENUM)
 };
 
+#define FOREACH_CANTP_FC_FLOW_STATUS(CANTP_FC_FLOW_STATUS) \
+		CANTP_FC_FLOW_STATUS(CANTP_FC_FLOW_STATUS_CTS) \
+		CANTP_FC_FLOW_STATUS(CANTP_FC_FLOW_STATUS_WAIT) \
+		CANTP_FC_FLOW_STATUS(CANTP_FC_FLOW_STATUS_OVF) \
+
+enum CANTP_FC_FLOW_STATUS_ENUM {
+	FOREACH_CANTP_FC_FLOW_STATUS(GENERATE_ENUM)
+};
+
 #define CANTP_N_AS_TIMER_MS	1000	//Time for transmission of the CAN frame
 									//(any N_PDU) on the sender side
 #define CANTP_N_BS_TIMER_MS	1000	//Time until reception of the next
@@ -52,10 +61,7 @@ enum CANTP_RESULT_ENUM {
 									//ConsecutiveFrame N_PDU
 #define CANTP_N_AR_TIMER_MS	1000
 #define CANTP_N_BR_TIMER_MS	1000
-
-#define CANTP_FC_STARUS_CTS		0
-#define CANTP_FC_STARUS_WAIT	1
-#define CANTP_FC_STARUS_OF		2
+#define CANTP_N_CR_TIMER_MS	1000
 
 #define CANTP_FF_LEN_H(x) ((uint8_t)((0xF00 & x) >> 8))
 #define CANTP_FF_LEN_L(x) ((uint16_t)(0xFF & x))
@@ -105,21 +111,23 @@ typedef struct __attribute__((packed)) {
 	};
 } cantp_frame_t;
 
-typedef enum {
+enum {
 	CANTP_STATE_IDOL	= 0,
 	CANTP_STATE_SF_SENDING,			//SF sent to CAN driver and waiting for response
 //	CANTP_STATE_SF_SENT,			//SF sending successful
 	CANTP_STATE_FF_SENDING,			//SF sent to CAN driver and waiting for response
 	CANTP_STATE_FF_SENT,			//First frame sent
 	CANTP_STATE_FF_FC_WAIT,			//First frame sent but waiting for FC frame
-	CANTP_STATE_FC_RCVD,			//Flow control frame received
+	CANTP_STATE_FC_RCVD,			//Flow control frame received from the receiver
+	CANTP_STATE_FC_SENDING,			//Flow control frame sending from the receiver
+	CANTP_STATE_CF_WAIT,			//Consecutive frame waiting from the receiver
 	CANTP_STATE_CF_SENT,			//Consecutive frame sent (see sequence number)
 	CANTP_STATE_CF_FC_WAIT,			//Consecutive frame sent but waiting for FC frame
 	CANTP_STATE_TX_DONE,
-} cantp_state_t;
+};
 
 typedef struct cantp_rxtx_state_s {
-	cantp_state_t state;
+	uint8_t state;
 	uint32_t id;
 	uint8_t idt;
 	uint8_t *data;			//pointer to a buffer of data to be sent/received
@@ -172,16 +180,26 @@ int cantp_timer_start(void *timer, char *name,  long tout_us);
 void cantp_timer_stop(void *timer);
 
 /*
- * int cantp_can_tx(uint32_t id, uint8_t idt, uint8_t dlc, uint8_t *data)
+ * int cantp_can_tx_nb(uint32_t id, uint8_t idt, uint8_t dlc, uint8_t *data)
  *
- * Transmits a CAN Frame
- * Should be implemented from physical layer (CAN Driver)
+ * Transmits a CAN Frame in none blocking mode
+ * Should be implemented from physical/link layer (CAN Driver)
  *
  * This function is not blocking. Usualy puts the next frame into
- * a queue that is transmitted by the CAN driver
+ * a queue that is transmitted by the link layer (CAN driver)
  *
  */
-int cantp_can_tx(uint32_t id, uint8_t idt, uint8_t dlc, uint8_t *data);
+int cantp_can_tx_nb(uint32_t id, uint8_t idt, uint8_t dlc, uint8_t *data);
+
+/*
+ * int cantp_can_tx(uint32_t id, uint8_t idt, uint8_t dlc, uint8_t *data,
+ *														uint32_t tout_us);
+ *
+ * Same as cantp_can_tx_nb() but blocks untill the CAN Frame is sent.
+ * Should be implemented from physical/link layer (CAN Driver)
+ */
+int cantp_can_tx(uint32_t id, uint8_t idt, uint8_t dlc, uint8_t *data,
+														uint32_t tout_us);
 
 /*
  * This function should be called from the data link layer (CAN Driver)
@@ -208,14 +226,14 @@ void cantp_result_cb(int result);
 
 /*
  * void cantp_received_cb(cantp_rxtx_status_t *ctx,
- * 			uint32_t id, uint8_t idt, uint8_t *data, uint16_t len);
+ * 			uint32_t id, uint8_t idt, uint8_t *data, uint8_t len);
  *
  * This function should be implemented by session layer to receive
  * the message from CAN-TP (transport/network layer)
  *
  */
 void cantp_received_cb(cantp_rxtx_status_t *ctx,
-			uint32_t id, uint8_t idt, uint8_t *data, uint16_t len);
+			uint32_t id, uint8_t idt, uint8_t *data, uint8_t len);
 
 /*
  * void cantp_canrx_cb(uint32_t id, uint8_t idt, uint8_t dlc,
@@ -241,6 +259,7 @@ void cantp_received_cb(cantp_rxtx_status_t *ctx,
  */
 void cantp_canrx_cb(uint32_t id, uint8_t idt, uint8_t dlc,
 								uint8_t *data, cantp_rxtx_status_t *ctx);
+
 
 
 /*

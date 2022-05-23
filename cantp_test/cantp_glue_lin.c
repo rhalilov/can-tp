@@ -50,7 +50,13 @@ void cantp_timer_stop(void *timer)
 	cbtimer_stop(t);
 }
 
-int cantp_can_tx(uint32_t id, uint8_t idt, uint8_t dlc, uint8_t *data)
+int cantp_can_tx_nb(uint32_t id, uint8_t idt, uint8_t dlc, uint8_t *data)
 {
-	return fake_can_tx(id, idt, dlc, data);
+	return fake_can_tx_nb(id, idt, dlc, data);
+}
+
+int cantp_can_tx(uint32_t id, uint8_t idt, uint8_t dlc, uint8_t *data,
+														uint32_t tout_us)
+{
+	return fake_can_tx(id, idt, dlc, data, tout_us);
 }
