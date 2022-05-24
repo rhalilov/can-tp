@@ -138,8 +138,13 @@ void cantp_canrx_cb(uint32_t id,
 			printf("\033[0;33mCAN-TP Receiver Sending: \033[0m");
 			print_cantp_frame(rcvr_tx_frame);
 
-			if (cantp_can_tx(ctx->id, ctx->idt, 8, rcvr_tx_frame.u8,
-											1000 * CANTP_N_AR_TIMER_MS) < 0) {
+//			if (cantp_can_tx(ctx->id, ctx->idt, 8, rcvr_tx_frame.u8,
+//											1000 * CANTP_N_AR_TIMER_MS) < 0) {
+			if (cantp_can_tx(ctx->id, ctx->idt, 8, rcvr_tx_frame.u8) < 0) {
+				//TODO: Timeout!!!
+				return;
+			}
+			if (cantp_can_wait_txdone(1000 * CANTP_N_AR_TIMER_MS) < 0) {
 				//TODO: Timeout!!!
 				return;
 			}
@@ -199,6 +204,7 @@ int cantp_send	(cantp_rxtx_status_t *ctx,
 			res = -1;
 		}; fflush(0);
 		cantp_can_tx_nb(id, idt, 8, txframe.u8);
+//		cantp_can_tx(id, idt, 8, txframe.u8, 1000000);
 		ctx->state = CANTP_STATE_FF_SENDING;
 	}
 //	ctx->start_tx_task(ctx);

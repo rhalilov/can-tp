@@ -4,6 +4,7 @@
  *  Created on: May 21, 2022
  *      Author: refo
  *
+ * https://stackoverflow.com/questions/4812891/fork-and-pipes-in-c
  * https://stackoverflow.com/questions/48241561/blocking-pipe-c-linux
  * https://stackoverflow.com/questions/16400820/how-to-use-posix-semaphores-on-forked-processes-in-c
  *
@@ -12,6 +13,7 @@
 #include <stdio.h>			//printf()
 #include <stdlib.h>			//exit(), malloc(), free()
 #include <stdatomic.h>
+#include <semaphore.h>	//sem_open(), sem_destroy(), sem_wait()..
 #include <stdint.h>
 #include <unistd.h>
 #include <signal.h>
@@ -41,20 +43,24 @@ enum fake_can_tx_status_e {
 	CANDRV_TX_DONE
 };
 
+static sem_t sem;
+
 fake_can_phy_t fake_can_phy;
+cbtimer_t candrv_txnb_timer;
 cbtimer_t candrv_tx_timer;
-atomic_int candrv_tx_status;
-long candrv_tx_delay_us;
-int can_tx_pipe[2];
-int can_rx_pipe[2];
+static long candrv_tx_delay_us;
+static int can_sndr_pipe[2];
+static int can_rcvr_pipe[2];
 static fake_can_phy_t can_frame;
+static char *candrv_name;
 
 int fake_can_rx_task(void *params)
 {
 	FILE *rx_stream, *tx_stream;
-	rx_stream = fdopen(can_tx_pipe[0], "rb");
-	tx_stream = fdopen(can_tx_pipe[1], "wb");
+	rx_stream = fdopen(can_sndr_pipe[0], "rb");
+	tx_stream = fdopen(can_sndr_pipe[1], "wb");
 
+	printf("%s fake_can_rx_task PID=%d Ready\n", candrv_name, getpid());
 	fake_can_phy_t can_frame;
 	ssize_t rlen = fread(can_frame.u8, 1, sizeof(fake_can_phy_t), rx_stream);
 	if (rlen == sizeof(fake_can_phy_t)) {
@@ -62,7 +68,8 @@ int fake_can_rx_task(void *params)
 		uint8_t tx_confirm = rlen;
 		ssize_t wlen = fwrite(&tx_confirm, 1, 1, tx_stream);
 
-		printf("\033[0;33mCAN-LL Receiver: Received %ld bytes\033[0m ", (long)rlen);
+		printf("%s: Received %ld bytes ",
+											candrv_name, (long)rlen);
 		printf("id=0x%08x idt=%d dlc=%d: 0x%02x 0x%02x 0x%02x 0x%02x "
 			"0x%02x 0x%02x 0x%02x 0x%02x\n",
 			can_frame.id, can_frame.idt, can_frame.dlc,
@@ -81,40 +88,57 @@ int fake_can_rx_task(void *params)
 static ssize_t candrv_send(uint8_t *rx_confirm)
 {
 	FILE *tx_stream, *rx_stream;
-	tx_stream = fdopen(can_tx_pipe[1], "wb");
-	rx_stream = fdopen(can_tx_pipe[0], "rb");
+	tx_stream = fdopen(can_sndr_pipe[1], "wb");
+	rx_stream = fdopen(can_sndr_pipe[0], "rb");
 
 	ssize_t wlen = fwrite(can_frame.u8, 1, sizeof(fake_can_phy_t), tx_stream);
 	fclose(tx_stream);
-	printf("CAN-LL Sender: Waiting to confirm... \n"); fflush(0);//do not touch this line
+	printf("%s: Waiting to confirm... \n", candrv_name); fflush(0);//do not touch this line
 	usleep(1000);
 	ssize_t rlen = fread(rx_confirm, 1, 1, rx_stream);
 	fclose(rx_stream);
 	return wlen;
 }
 
-static void candrv_tx_timer_cb(cbtimer_t *t)
+static void candrv_txnb_timer_cb(cbtimer_t *t)
 {
 	uint8_t rx_confirm = 0;
-	printf("CAN-LL SenderNB: Sending %ld bytes\n", sizeof(fake_can_phy_t));
+	printf("%s: SendingNB %ld bytes\n", candrv_name, sizeof(fake_can_phy_t));
 	ssize_t wlen = candrv_send(&rx_confirm);
 	if (rx_confirm == wlen) {
 		//Sender L_Data.con
-		printf("CAN-LL Sender: Confirmed transmission of %ld bytes\n", (long)wlen); fflush(0);
+		printf("%s: Confirmed transmission of %ld bytes\n",
+										candrv_name, (long)wlen); fflush(0);
 		//Sender L_Data.con: data link layer issues to the transport/network
 		//layer the reception of the CAN frame
-		if (atomic_load(&candrv_tx_status) == CANDRV_TX_IDLE) {
-			//the current transmit is on non blocking mode
-			//so we need to call che callback function to inform
-			//the caller (sender) for completition of the transmission
-			printf("CAN-LL TX Done. Calling CB\n"); fflush(0);
-			fake_cantx_confirm_cb(t->cb_params);
-		} else {
-			//in blocking mode we just informing the fake_can_tx()
-			//function that the transmission has being completed
-			printf("CAN-LL TX Done\n"); fflush(0);
-			atomic_store(&candrv_tx_status, CANDRV_TX_DONE);
-		}
+
+		//the current transmit is on non blocking mode
+		//so we need to call the callback function to inform
+		//the caller (sender) for completion of the transmission
+		printf("%s: TX Done. Calling CB\n",  candrv_name); fflush(0);
+		fake_cantx_confirm_cb(t->cb_params);
+	} else {
+		printf("wlen = %ld confirm = %d\n", wlen, rx_confirm);
+	}
+
+}
+
+static void candrv_tx_timer_cb(cbtimer_t *t)
+{
+	uint8_t rx_confirm = 0;
+	printf("%s: Sending %ld bytes\n", candrv_name, sizeof(fake_can_phy_t));
+	ssize_t wlen = candrv_send(&rx_confirm);
+	if (rx_confirm == wlen) {
+		//Sender L_Data.con
+		printf("%s: Confirmed transmission of %ld bytes\n",
+										candrv_name, (long)wlen); fflush(0);
+		//Sender L_Data.con: data link layer issues to the transport/network
+		//layer the reception of the CAN frame
+
+		//in blocking mode we just informing the fake_can_tx()
+		//function that the transmission has being completed
+		printf("%s: TX Done\n", candrv_name); fflush(0);
+		sem_post(&sem);
 	} else {
 		printf("wlen = %ld confirm = %d\n", wlen, rx_confirm);
 	}
@@ -129,66 +153,72 @@ int fake_can_tx_nb(uint32_t id, uint8_t idt, uint8_t dlc, uint8_t *data)
 	for (uint8_t i = 0; i < 8; i++) {
 		can_frame.data[i] = data[i];
 	}
-	printf("CAN-LL SenderNB: ");
-	cbtimer_start(&candrv_tx_timer, candrv_tx_delay_us);
-	// follows at candrv_tx_timer_cb(cbtimer_t *t)
+	printf("%sNB: ", candrv_name);
+	cbtimer_start(&candrv_txnb_timer, candrv_tx_delay_us);
+	// follows at candrv_txnb_timer_cb(cbtimer_t *t)
 }
 
-int fake_can_tx(uint32_t id, uint8_t idt, uint8_t dlc, uint8_t *data,
-														uint32_t tout_us)
+int fake_can_tx(uint32_t id, uint8_t idt, uint8_t dlc, uint8_t *data)
 {
-	int res = 0;
-	//For testing purposes we do not expect to have parallel transmission
-	//so we are skipping the checks if the driver already is sending anything
-//	atomic_store(&candrv_tx_status, CANDRV_TRANSMITTING);
-//	fake_can_tx_nb(id, idt, dlc, data);
-//	uint32_t t = 0;
-//	while (atomic_load(&candrv_tx_status) == CANDRV_TRANSMITTING) {
-//		usleep(1000);
-//		t += 1000;
-//		if (t > tout_us) {
-//			res = -1;
-//			break;
-//		}
-//	}
-//	atomic_store(&candrv_tx_status, CANDRV_TX_IDLE);
-//	return res;
 	can_frame.id = id;
 	can_frame.idt = idt;
 	can_frame.dlc = dlc;
 	for (uint8_t i = 0; i < 8; i++) {
 		can_frame.data[i] = data[i];
 	}
-	printf("CAN-LL Sender: Sending %ld bytes\n", sizeof(fake_can_phy_t));
-	uint8_t rx_confirm = 0;
-	ssize_t wlen = candrv_send(&rx_confirm);
-	if (rx_confirm == wlen) {
-		//Sender L_Data.con
-		printf("CAN-LL Sender: Confirmed transmission of %ld bytes\n", (long)wlen); fflush(0);
-		//Sender L_Data.con: data link layer issues to the transport/network
-		//layer the reception of the CAN frame
-	} else {
-		printf("wlen = %ld confirm = %d\n", wlen, rx_confirm);
-		res = -1;
-	}
-	return res;
+	printf("%s: ", candrv_name);
+	cbtimer_start(&candrv_tx_timer, candrv_tx_delay_us);
+	// follows at candrv_tx_timer_cb(cbtimer_t *t)
 }
 
-int fake_can_init(long tx_delay_us, void *params)
+int fake_can_wait_txdone(long tout_us)
+{
+	printf("%s: waiting to end the transmision\n", candrv_name); fflush(0);
+	//TODO: Implement the tout timer
+	sem_wait(&sem);
+	return 0;
+}
+
+int fake_can_init(long tx_delay_us, const char *name, void *params)
 {
 	candrv_tx_delay_us = tx_delay_us;
 
-	atomic_store(&candrv_tx_status, CANDRV_TX_IDLE);
+	candrv_name = name;
 
-	if (pipe(can_tx_pipe)) {
+	if (pipe(can_sndr_pipe)) {
+		fprintf(stderr, "Pipe failed.\n");
+		return -1;
+	}
+	if (pipe(can_rcvr_pipe)) {
 		fprintf(stderr, "Pipe failed.\n");
 		return -1;
 	}
 	//setting up a fake timer that simulates the latency of
 	//the transmission of the CAN driver (data link layer)
+	if (cbtimer_set_cb(&candrv_txnb_timer, candrv_txnb_timer_cb, params) < 0) {
+		return -1;
+	}
+	cbtimer_set_name(&candrv_txnb_timer, name);
+	return 0;
+}
+
+int fake_can_rcvr_init(long tx_delay_us, const char *name, void *params)
+{
+	candrv_tx_delay_us = tx_delay_us;
+	candrv_name = name;
+
+	sem_init(&sem, 1, 0);
+
+	//setting up a fake timer that simulates the latency of
+	//the transmission of the CAN driver (data link layer)
+	if (cbtimer_set_cb(&candrv_txnb_timer, candrv_txnb_timer_cb, params) < 0) {
+		return -1;
+	}
+	cbtimer_set_name(&candrv_txnb_timer, name);
+
 	if (cbtimer_set_cb(&candrv_tx_timer, candrv_tx_timer_cb, params) < 0) {
 		return -1;
 	}
-	cbtimer_set_name(&candrv_tx_timer, "CAN-LL");
+	cbtimer_set_name(&candrv_tx_timer, name);
 	return 0;
 }

@@ -48,7 +48,7 @@ int cbtimer_set_cb(cbtimer_t *tim, void (*cb)(struct cbtimer_s *timer),
 
 void cbtimer_set_name(cbtimer_t *tim, char *name)
 {
-//	printf("Timer name: %s\n", name);
+	printf("Timer name: %s\n", name);fflush(0);
 	tim->name = name;
 }
 
