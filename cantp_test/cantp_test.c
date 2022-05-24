@@ -6,12 +6,16 @@
  *
  */
 
-#include <stdio.h>
-#include <stdlib.h>
+#include <stdio.h>		//printf()
+#include <stdlib.h>		//exit(), malloc(), free()
 #include <stdatomic.h>
+#include <sys/shm.h>	//shmat(), IPC_RMID
 #include <stdint.h>
 #include <stdarg.h>
 #include <unistd.h>
+#include <semaphore.h>	//sem_open(), sem_destroy(), sem_wait()..
+#include <fcntl.h>		//O_CREAT, O_EXEC
+#include <sys/mman.h>
 #include <string.h>
 #include <errno.h>
 #include <signal.h>
@@ -32,7 +36,13 @@ static const char *cantp_result_enum_str[] = {
 };
 
 static cantp_rxtx_status_t cantp_sndr_ctx;
-atomic_int cantp_result_status;
+
+typedef struct {
+	sem_t sem;
+	int i;
+} semint_t;
+
+semint_t *sem_main_wait;
 
 void fake_cantx_confirm_cb(void *params)
 {
@@ -53,7 +63,7 @@ void cantp_result_cb(int result)
 		printf("\033[0;31m");
 	}
 	printf("%s\033[0m\n", cantp_result_enum_str[result]);
-	atomic_store(&cantp_result_status, CANTP_RESULT_RECEIVED);
+	sem_post(&sem_main_wait->sem);
 }
 
 void cantp_received_cb(cantp_rxtx_status_t *ctx,
@@ -110,11 +120,28 @@ int main(int argc, char **argv)
 		candrv_tx_delay = atoi(argv[1]);
 		printf("candrv_tx_delay = %ldμs\n", candrv_tx_delay);
 	}
+
+	sem_main_wait = (semint_t*) mmap(NULL, sizeof(semint_t), PROT_READ | PROT_WRITE,
+										MAP_ANONYMOUS | MAP_SHARED, 0, 0);
+	if (sem_main_wait == MAP_FAILED) {
+		printf("Couldn't initialize semaphore mapping\n");
+		return EXIT_FAILURE;
+	}
+
+	sem_init(&sem_main_wait->sem, 1, 0);
+	sem_main_wait->i = 0;
+
 	fake_can_init(candrv_tx_delay, &cantp_sndr_ctx);
 
+	//Maybe is bether to use threads instead of fork()
+	//but someone can improve it if he wants
 	pid_t pid = fork();
 	if (pid == (pid_t) 0) {
 		//This is the child process.
+
+		sem_main_wait->i = 1;
+		msync(&sem_main_wait->sem, sizeof(size_t), MS_SYNC);
+
 		receiver_task(0xbbb, 0, 0, 0);
 		printf("END child\n"); fflush(0);
 		return EXIT_SUCCESS;
@@ -123,8 +150,6 @@ int main(int argc, char **argv)
 		return EXIT_FAILURE;
 	}
 //	printf("pid = %d\n", pid);
-
-	atomic_store(&cantp_result_status, CANTP_RESULT_WAITING);
 
 	uint16_t dlen = 16;
 	uint8_t *data = malloc(dlen);
@@ -138,9 +163,7 @@ int main(int argc, char **argv)
 
 	cantp_send(&cantp_sndr_ctx, 0xAAA, 0, data, dlen);
 
-	while (atomic_load(&cantp_result_status) == CANTP_RESULT_WAITING) {
-		usleep(1000);
-	}
+	sem_wait(&sem_main_wait->sem);
 	kill(pid, SIGHUP);
 	printf("EndMain\n");fflush(0);
 	return 0;

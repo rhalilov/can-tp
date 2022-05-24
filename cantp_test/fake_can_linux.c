@@ -5,10 +5,12 @@
  *      Author: refo
  *
  * https://stackoverflow.com/questions/48241561/blocking-pipe-c-linux
+ * https://stackoverflow.com/questions/16400820/how-to-use-posix-semaphores-on-forked-processes-in-c
+ *
  */
 
-#include <stdio.h>
-#include <stdlib.h>
+#include <stdio.h>			//printf()
+#include <stdlib.h>			//exit(), malloc(), free()
 #include <stdatomic.h>
 #include <stdint.h>
 #include <unistd.h>
@@ -84,7 +86,7 @@ static ssize_t candrv_send(uint8_t *rx_confirm)
 
 	ssize_t wlen = fwrite(can_frame.u8, 1, sizeof(fake_can_phy_t), tx_stream);
 	fclose(tx_stream);
-//	printf("CAN-LL Sender: Waiting to confirm... \n"); fflush(0);//do not touch this line
+	printf("CAN-LL Sender: Waiting to confirm... \n"); fflush(0);//do not touch this line
 	usleep(1000);
 	ssize_t rlen = fread(rx_confirm, 1, 1, rx_stream);
 	fclose(rx_stream);

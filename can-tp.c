@@ -137,6 +137,7 @@ void cantp_canrx_cb(uint32_t id,
 			ctx->state = CANTP_STATE_FC_SENDING;
 			printf("\033[0;33mCAN-TP Receiver Sending: \033[0m");
 			print_cantp_frame(rcvr_tx_frame);
+
 			if (cantp_can_tx(ctx->id, ctx->idt, 8, rcvr_tx_frame.u8,
 											1000 * CANTP_N_AR_TIMER_MS) < 0) {
 				//TODO: Timeout!!!

@@ -12,7 +12,7 @@ SRCS =	cantp_test.c \
 		cantp_glue_lin.c \
 		../can-tp.c \
 
-LIBS = -lrt
+LIBS = -lrt -lpthread
 
 OBJS = $(SRCS:.c=.o)
 
