@@ -50,7 +50,7 @@ cbtimer_t candrv_txnb_timer;
 cbtimer_t candrv_tx_timer;
 static long candrv_tx_delay_us;
 static int can_sndr_pipe[2];
-static int can_rcvr_pipe[2];
+//static int can_rcvr_pipe[2];
 static fake_can_phy_t can_frame;
 static char *candrv_name;
 
@@ -144,12 +144,13 @@ int fake_can_wait_txdone(long tout_us)
 	return 0;
 }
 
-int fake_can_init(long tx_delay_us, const char *name, void *params)
+int fake_can_init(long tx_delay_us, char *name, void *params)
 {
 	candrv_tx_delay_us = tx_delay_us;
 
 	candrv_name = name;
 
+	//make pipe initialization only from Sender side
 	if (pipe(can_sndr_pipe)) {
 		fprintf(stderr, "Pipe failed.\n");
 		return -1;
@@ -162,8 +163,9 @@ int fake_can_init(long tx_delay_us, const char *name, void *params)
 	cbtimer_set_name(&candrv_txnb_timer, name);
 	return 0;
 }
-
-int fake_can_rcvr_init(long tx_delay_us, const char *name, void *params)
+//this function is supposed to be called from the Receiver side
+//for testing purposes only from another (peer) process or thread
+int fake_can_rcvr_init(long tx_delay_us, char *name, void *params)
 {
 	candrv_tx_delay_us = tx_delay_us;
 	candrv_name = name;

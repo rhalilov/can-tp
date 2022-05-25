@@ -90,3 +90,10 @@ void cbtimer_stop(cbtimer_t *tim)
 				(long int)tim->timerId); fflush(0);
 	}
 }
+
+int cbtimer_is_expired(cbtimer_t *tim)
+{
+	int ovr = timer_getoverrun(&tim->status);
+	printf("timer_getoverrun = %d\n", ovr); fflush(0);
+	return (ovr > 0);
+}

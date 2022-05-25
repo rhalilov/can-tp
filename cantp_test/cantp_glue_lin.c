@@ -37,6 +37,12 @@ int cantp_timer_start(void *timer, char *name, long tout_us)
 	return cbtimer_start(t, tout_us);
 }
 
+int cantp_is_timer_expired(void *timer)
+{
+	cbtimer_t *t;
+	return cbtimer_is_expired(t);
+}
+
 void cantp_tx_t_cb(cbtimer_t *tim)
 {
 	cantp_rxtx_status_t *ctx = (cantp_rxtx_status_t *)(tim->cb_params);

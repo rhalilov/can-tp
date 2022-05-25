@@ -30,7 +30,7 @@ enum CANTP_N_PCI_TYPE_ENUM {
 
 #define FOREACH_CANTP_RESULT(CANTP_RESULT) \
 	CANTP_RESULT(CANTP_RESULT_N_OK) \
-	CANTP_RESULT(CANTP_RESULT_N_TIMEOUT_As) \
+	CANTP_RESULT(CANTP_RESULT_N_TIMEOUT_A) \
 	CANTP_RESULT(CANTP_RESULT_N_TIMEOUT_Bs) \
 	CANTP_RESULT(CANTP_RESULT_N_TIMEOUT_Cr) \
 	CANTP_RESULT(CANTP_RESULT_N_WRONG_SN) \
@@ -59,7 +59,8 @@ enum CANTP_FC_FLOW_STATUS_ENUM {
 									//FlowControl N_PDU
 #define CANTP_N_CS_TIMER_MS	1000	//Time until transmission of the next
 									//ConsecutiveFrame N_PDU
-#define CANTP_N_AR_TIMER_MS	1000
+#define CANTP_N_AR_TIMER_MS	1000	//Time for transmission of the CAN frame
+									//(any N_PDU) on the receiver side
 #define CANTP_N_BR_TIMER_MS	1000
 #define CANTP_N_CR_TIMER_MS	1000
 
@@ -111,15 +112,18 @@ typedef struct __attribute__((packed)) {
 	};
 } cantp_frame_t;
 
+//Please note that the both roles "Receiver" and "Sender" form CAN-TP
+// point of view can send and receive CAN frames (link layer)
 enum {
 	CANTP_STATE_IDOL	= 0,
 	CANTP_STATE_SF_SENDING,			//SF sent to CAN driver and waiting for response
 //	CANTP_STATE_SF_SENT,			//SF sending successful
 	CANTP_STATE_FF_SENDING,			//SF sent to CAN driver and waiting for response
-	CANTP_STATE_FF_SENT,			//First frame sent
+	CANTP_STATE_FF_SENT,			//First frame sent from the Sender
+	CANTP_STATE_FF_RCVD,			//First frame received from Receiver
 	CANTP_STATE_FF_FC_WAIT,			//First frame sent but waiting for FC frame
-	CANTP_STATE_FC_RCVD,			//Flow control frame received from the receiver
 	CANTP_STATE_FC_SENDING,			//Flow control frame sending from the receiver
+	CANTP_STATE_FC_RCVD,			//Flow control frame received from the receiver
 	CANTP_STATE_CF_WAIT,			//Consecutive frame waiting from the receiver
 	CANTP_STATE_CF_SENT,			//Consecutive frame sent (see sequence number)
 	CANTP_STATE_CF_FC_WAIT,			//Consecutive frame sent but waiting for FC frame
@@ -150,7 +154,7 @@ static inline void cantp_ff_len_set(cantp_frame_t *cantp_ff, uint16_t len)
 
 static inline uint16_t cantp_ff_len_get(cantp_frame_t *cantp_ff)
 {
-	return (cantp_ff->ff.len_h << 8) + (cantp_ff->ff.len_l);
+	return ((uint16_t)cantp_ff->ff.len_h << 8) | (cantp_ff->ff.len_l);
 }
 
 static inline void cantp_rx_params_init(cantp_rxtx_status_t *ctx,
@@ -172,6 +176,11 @@ static inline void cantp_set_timer_ptr(void *timer, cantp_rxtx_status_t *state)
  *
  */
 int cantp_timer_start(void *timer, char *name,  long tout_us);
+
+/*
+ *
+ */
+int cantp_is_timer_expired(void *timer);
 
 /*
  * void cantp_timer_stop(void *timer);

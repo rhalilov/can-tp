@@ -54,7 +54,7 @@ void fake_canrx_cb(uint32_t id, uint8_t idt, uint8_t dlc, uint8_t *data, void *p
 
 void cantp_result_cb(int result)
 {
-	printf("CAN-TP Sender: Received result: ");
+	printf("CAN-TP: Received result: ");
 	if (result == CANTP_RESULT_N_OK) {
 		printf("\033[0;32m");
 	} else {
@@ -81,7 +81,7 @@ void cantp_received_cb(cantp_rxtx_status_t *ctx,
 void cantp_rcvd_ff_cb(cantp_rxtx_status_t *ctx,
 			uint32_t id, uint8_t idt, uint8_t *data, uint16_t len)
 {
-	printf("\033[0;33mCAN-SL Receiver Received First Frame "
+	printf("\033[0;36mCAN-SL Receiver: Received First Frame "
 			"from ID=0x%06x IDT=%d CAN-TP Message LEN=%d bytes:\033[0m \n",
 			id, idt, ctx->len);
 	for (uint16_t i; i < len; i++) {
@@ -108,7 +108,7 @@ void receiver_task(uint32_t id, uint8_t idt, uint8_t rx_bs, uint8_t rx_st)
 	ctp_rcvr_state.id = id;
 	ctp_rcvr_state.idt = idt;
 
-	fake_can_rcvr_init(cdrv_rcvr_tx_delay, "\033[0;33mCAN-LL Receiver\033[0m",
+	fake_can_rcvr_init(cdrv_rcvr_tx_delay, "\033[0;34mCAN-LL Receiver\033[0m",
 													&ctp_rcvr_state);
 
 	cantp_rx_params_init(&ctp_rcvr_state, rx_bs, rx_st);
@@ -158,7 +158,8 @@ int main(int argc, char **argv)
 
 	printf("Initializing the Sender side\n");
 	static cantp_rxtx_status_t cantp_sndr_state;
-	fake_can_init(cdrv_sndr_tx_delay, "CAN-LL Sender", &cantp_sndr_state);
+	fake_can_init(cdrv_sndr_tx_delay, "\033[0;35mCAN-LL Sender\033[0m",
+															&cantp_sndr_state);
 
 	//Maybe is better to use threads instead of fork()
 	//but someone can improve it if he wants
@@ -167,7 +168,6 @@ int main(int argc, char **argv)
 		//This is the child process.
 		printf("Receiver pid = %d\n", getpid());
 		receiver_task(0xbbb, 0, 0, 0);
-		sleep(10);
 		printf("Receiver END\n"); fflush(0);
 		return EXIT_SUCCESS;
 	} else if (pid < (pid_t) 0) {
