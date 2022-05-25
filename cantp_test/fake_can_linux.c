@@ -43,21 +43,26 @@ enum fake_can_tx_status_e {
 	CANDRV_TX_DONE
 };
 
-static sem_t sem;
+static sem_t tx_done_sem;
 
 fake_can_phy_t fake_can_phy;
 cbtimer_t candrv_txnb_timer;
 cbtimer_t candrv_tx_timer;
 static long candrv_tx_delay_us;
+static uint8_t candrv_sndr_rcvr;
 static int can_sndr_pipe[2];
-//static int can_rcvr_pipe[2];
+static int can_rcvr_pipe[2];
 static fake_can_phy_t can_frame;
 static char *candrv_name;
 
 int fake_can_rx_task(void *params)
 {
 	FILE *rx_stream;
-	rx_stream = fdopen(can_sndr_pipe[0], "rb");
+	if (candrv_sndr_rcvr == FAKE_CAN_RECEIVER) {
+		rx_stream = fdopen(can_sndr_pipe[0], "rb");
+	} else {
+		rx_stream = fdopen(can_rcvr_pipe[0], "rb");
+	}
 
 	printf("%s fake_can_rx_task PID=%d Ready\n", candrv_name, getpid());
 	fake_can_phy_t can_frame;
@@ -81,7 +86,13 @@ int fake_can_rx_task(void *params)
 static ssize_t candrv_send(void)
 {
 	FILE *tx_stream, *rx_stream;
-	tx_stream = fdopen(can_sndr_pipe[1], "wb");
+	if (candrv_sndr_rcvr == FAKE_CAN_RECEIVER) {
+//		tx_stream = fdopen(can_sndr_pipe[1], "wb");
+		tx_stream = fdopen(can_rcvr_pipe[1], "wb");
+	} else {
+//		tx_stream = fdopen(can_rcvr_pipe[1], "wb");
+		tx_stream = fdopen(can_sndr_pipe[1], "wb");
+	}
 
 	ssize_t wlen = fwrite(can_frame.u8, 1, sizeof(fake_can_phy_t), tx_stream);
 	fclose(tx_stream);
@@ -106,7 +117,7 @@ static void candrv_tx_timer_cb(cbtimer_t *t)
 	ssize_t wlen = candrv_send();
 	//in blocking mode we just informing the fake_can_tx()
 	//function that the transmission has being completed
-	sem_post(&sem);
+	sem_post(&tx_done_sem);
 }
 
 int fake_can_tx_nb(uint32_t id, uint8_t idt, uint8_t dlc, uint8_t *data)
@@ -139,38 +150,30 @@ int fake_can_wait_txdone(long tout_us)
 {
 	printf("%s: waiting for the end of transmission\n", candrv_name); fflush(0);
 	//TODO: Implement the tout timer
-	sem_wait(&sem);
+	sem_wait(&tx_done_sem);
 	printf("%s: TX Done\n", candrv_name); fflush(0);
 	return 0;
 }
 
-int fake_can_init(long tx_delay_us, char *name, void *params)
+int fake_can_init(long tx_delay_us, char *name, void *params, uint8_t sndr_rcvr)
 {
 	candrv_tx_delay_us = tx_delay_us;
-
+	candrv_sndr_rcvr = sndr_rcvr;
 	candrv_name = name;
+
+	sem_init(&tx_done_sem, 1, 0);
 
 	//make pipe initialization only from Sender side
-	if (pipe(can_sndr_pipe)) {
-		fprintf(stderr, "Pipe failed.\n");
-		return -1;
+	if (candrv_sndr_rcvr == FAKE_CAN_SENDER) {
+		if (pipe(can_sndr_pipe)) {
+			fprintf(stderr, "Pipe failed.\n");
+			return -1;
+		}
+		if (pipe(can_rcvr_pipe)) {
+			fprintf(stderr, "Pipe failed.\n");
+			return -1;
+		}
 	}
-	//setting up a fake timer that simulates the latency of
-	//the transmission of the CAN driver (data link layer)
-	if (cbtimer_set_cb(&candrv_txnb_timer, candrv_txnb_timer_cb, params) < 0) {
-		return -1;
-	}
-	cbtimer_set_name(&candrv_txnb_timer, name);
-	return 0;
-}
-//this function is supposed to be called from the Receiver side
-//for testing purposes only from another (peer) process or thread
-int fake_can_rcvr_init(long tx_delay_us, char *name, void *params)
-{
-	candrv_tx_delay_us = tx_delay_us;
-	candrv_name = name;
-
-	sem_init(&sem, 1, 0);
 
 	//setting up a fake timer that simulates the latency of
 	//the transmission of the CAN driver (data link layer)

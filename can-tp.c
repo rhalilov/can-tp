@@ -175,7 +175,7 @@ void cantp_canrx_cb(uint32_t id,
 		} break;
 	case CANTP_FLOW_CONTROLL: {
 		//First Control frame can be receiver only from the Sender side
-		printf("\033[0;31mCAN-TP Sender: \033[0m");
+		printf("\033[0;35mCAN-TP Sender: Received \033[0m");
 		print_cantp_frame(cantp_rx_frame); fflush(0);
 		} break;
 	}
