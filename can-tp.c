@@ -97,10 +97,10 @@ void cantp_canrx_cb(uint32_t id,
 	for (uint8_t i=0; i < dlc; i++) {
 		cantp_rx_frame.u8[i] = data[i];
 	}
-	printf("\033[0;33mCAN-TP Receiver: "
-//			"Received (ID=0x%06x IDT=%d DLC=%d) ",
-//			id, idt, dlc
-			);
+//	printf("\033[0;33mCAN-TP Receiver: "
+////			"Received (ID=0x%06x IDT=%d DLC=%d) ",
+////			id, idt, dlc
+//			);
 	print_cantp_frame(cantp_rx_frame); fflush(0);
 	switch (cantp_rx_frame.n_pci_t) {
 	case CANTP_SINGLE_FRAME: {
@@ -137,18 +137,14 @@ void cantp_canrx_cb(uint32_t id,
 			ctx->state = CANTP_STATE_FC_SENDING;
 			printf("\033[0;33mCAN-TP Receiver Sending: \033[0m");
 			print_cantp_frame(rcvr_tx_frame);
-
-//			if (cantp_can_tx(ctx->id, ctx->idt, 8, rcvr_tx_frame.u8,
-//											1000 * CANTP_N_AR_TIMER_MS) < 0) {
 			if (cantp_can_tx(ctx->id, ctx->idt, 8, rcvr_tx_frame.u8) < 0) {
-				//TODO: Timeout!!!
+				//TODO: Error handling !!!
 				return;
 			}
 			if (cantp_can_wait_txdone(1000 * CANTP_N_AR_TIMER_MS) < 0) {
-				//TODO: Timeout!!!
+				//TODO: Timeout handling!!!
 				return;
 			}
-			printf("-----------done----------\n");fflush(0);
 			printf("\033[0;33mCAN-TP Receiver: \033[0m");
 			if (cantp_timer_start(ctx->timer, "N_Cr",
 									1000 * CANTP_N_CR_TIMER_MS) < 0 ) {
@@ -156,6 +152,9 @@ void cantp_canrx_cb(uint32_t id,
 				fflush(0);
 				return;
 			}
+
+		} break;
+	case CANTP_FLOW_CONTROLL: {
 
 		} break;
 	}

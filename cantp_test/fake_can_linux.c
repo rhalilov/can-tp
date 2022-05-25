@@ -56,20 +56,14 @@ static char *candrv_name;
 
 int fake_can_rx_task(void *params)
 {
-	FILE *rx_stream, *tx_stream;
+	FILE *rx_stream;
 	rx_stream = fdopen(can_sndr_pipe[0], "rb");
-	tx_stream = fdopen(can_sndr_pipe[1], "wb");
 
 	printf("%s fake_can_rx_task PID=%d Ready\n", candrv_name, getpid());
 	fake_can_phy_t can_frame;
 	ssize_t rlen = fread(can_frame.u8, 1, sizeof(fake_can_phy_t), rx_stream);
 	if (rlen == sizeof(fake_can_phy_t)) {
-		//Sending back a confirmation
-		uint8_t tx_confirm = rlen;
-		ssize_t wlen = fwrite(&tx_confirm, 1, 1, tx_stream);
-
-		printf("%s: Received %ld bytes ",
-											candrv_name, (long)rlen);
+		printf("%s: Received %ld bytes ", candrv_name, (long)rlen);
 		printf("id=0x%08x idt=%d dlc=%d: 0x%02x 0x%02x 0x%02x 0x%02x "
 			"0x%02x 0x%02x 0x%02x 0x%02x\n",
 			can_frame.id, can_frame.idt, can_frame.dlc,
@@ -82,67 +76,37 @@ int fake_can_rx_task(void *params)
 		printf("RX rdlen=%ld\n", rlen);
 	}
 	fclose(rx_stream);
-	fclose(tx_stream);
 }
 
-static ssize_t candrv_send(uint8_t *rx_confirm)
+static ssize_t candrv_send(void)
 {
 	FILE *tx_stream, *rx_stream;
 	tx_stream = fdopen(can_sndr_pipe[1], "wb");
-	rx_stream = fdopen(can_sndr_pipe[0], "rb");
 
 	ssize_t wlen = fwrite(can_frame.u8, 1, sizeof(fake_can_phy_t), tx_stream);
 	fclose(tx_stream);
-	printf("%s: Waiting to confirm... \n", candrv_name); fflush(0);//do not touch this line
-	usleep(1000);
-	ssize_t rlen = fread(rx_confirm, 1, 1, rx_stream);
-	fclose(rx_stream);
 	return wlen;
 }
 
 static void candrv_txnb_timer_cb(cbtimer_t *t)
 {
-	uint8_t rx_confirm = 0;
 	printf("%s: SendingNB %ld bytes\n", candrv_name, sizeof(fake_can_phy_t));
-	ssize_t wlen = candrv_send(&rx_confirm);
-	if (rx_confirm == wlen) {
-		//Sender L_Data.con
-		printf("%s: Confirmed transmission of %ld bytes\n",
-										candrv_name, (long)wlen); fflush(0);
-		//Sender L_Data.con: data link layer issues to the transport/network
-		//layer the reception of the CAN frame
+	ssize_t wlen = candrv_send();
 
-		//the current transmit is on non blocking mode
-		//so we need to call the callback function to inform
-		//the caller (sender) for completion of the transmission
-		printf("%s: TX Done. Calling CB\n",  candrv_name); fflush(0);
-		fake_cantx_confirm_cb(t->cb_params);
-	} else {
-		printf("wlen = %ld confirm = %d\n", wlen, rx_confirm);
-	}
-
+	//the current transmit is on non blocking mode
+	//so we need to call the callback function to inform
+	//the caller (sender) for completion of the transmission
+	printf("%s: TX Done. Calling CB\n",  candrv_name); fflush(0);
+	fake_cantx_confirm_cb(t->cb_params);
 }
 
 static void candrv_tx_timer_cb(cbtimer_t *t)
 {
-	uint8_t rx_confirm = 0;
 	printf("%s: Sending %ld bytes\n", candrv_name, sizeof(fake_can_phy_t));
-	ssize_t wlen = candrv_send(&rx_confirm);
-	if (rx_confirm == wlen) {
-		//Sender L_Data.con
-		printf("%s: Confirmed transmission of %ld bytes\n",
-										candrv_name, (long)wlen); fflush(0);
-		//Sender L_Data.con: data link layer issues to the transport/network
-		//layer the reception of the CAN frame
-
-		//in blocking mode we just informing the fake_can_tx()
-		//function that the transmission has being completed
-		printf("%s: TX Done\n", candrv_name); fflush(0);
-		sem_post(&sem);
-	} else {
-		printf("wlen = %ld confirm = %d\n", wlen, rx_confirm);
-	}
-
+	ssize_t wlen = candrv_send();
+	//in blocking mode we just informing the fake_can_tx()
+	//function that the transmission has being completed
+	sem_post(&sem);
 }
 
 int fake_can_tx_nb(uint32_t id, uint8_t idt, uint8_t dlc, uint8_t *data)
@@ -173,9 +137,10 @@ int fake_can_tx(uint32_t id, uint8_t idt, uint8_t dlc, uint8_t *data)
 
 int fake_can_wait_txdone(long tout_us)
 {
-	printf("%s: waiting to end the transmision\n", candrv_name); fflush(0);
+	printf("%s: waiting for the end of transmission\n", candrv_name); fflush(0);
 	//TODO: Implement the tout timer
 	sem_wait(&sem);
+	printf("%s: TX Done\n", candrv_name); fflush(0);
 	return 0;
 }
 
@@ -186,10 +151,6 @@ int fake_can_init(long tx_delay_us, const char *name, void *params)
 	candrv_name = name;
 
 	if (pipe(can_sndr_pipe)) {
-		fprintf(stderr, "Pipe failed.\n");
-		return -1;
-	}
-	if (pipe(can_rcvr_pipe)) {
 		fprintf(stderr, "Pipe failed.\n");
 		return -1;
 	}
