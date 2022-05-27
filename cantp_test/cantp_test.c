@@ -80,17 +80,23 @@ void cantp_received_cb(cantp_rxtx_status_t *ctx,
 	usleep(100000);
 }
 
-void cantp_rcvd_ff_cb(cantp_rxtx_status_t *ctx,
-			uint32_t id, uint8_t idt, uint8_t *data, uint16_t len)
+void cantp_rcvr_rx_ff_cb(uint32_t id, uint8_t idt, uint8_t **data, uint16_t len)
 {
 	printf("\033[0;36mCAN-SL Receiver: Received First Frame "
-			"from ID=0x%06x IDT=%d CAN-TP Message LEN=%d bytes:\033[0m \n",
-			id, idt, ctx->len);
-	for (uint16_t i; i < len; i++) {
-		printf("0x%02x ", data[i]);
+			"from ID=0x%06x IDT=%d CAN-TP Message LEN=%d\033[0m \n",
+			id, idt, len); fflush(0);
+	*data = malloc(len);
+	if (*data == NULL) {
+		printf("\033[0;36mCAN-SL Receiver: ERROR allocating memory\033[0m\n");
+		fflush(0);
 	}
-	putchar('\n');
+	printf("\033[0;36mCAN-SL Receiver: Memory allocated: %ld\033[0m\n", (long)(*data));
 	fflush(0);
+}
+
+void cantp_sndr_tx_done_cb(void)
+{
+	printf("CAN-SL Sender: TX Done \n"); fflush(0);
 
 }
 

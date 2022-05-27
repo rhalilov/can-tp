@@ -279,19 +279,30 @@ void cantp_canrx_cb(uint32_t id, uint8_t idt, uint8_t dlc,
 
 
 /*
- * void cantp_rcvd_ff_cb(cantp_rxtx_status_t *ctx,
+ * void cantp_rcvr_rx_ff_cb(cantp_rxtx_status_t *ctx,
  *			uint32_t id, uint8_t idt, uint8_t *data, uint16_t len)
  *
- * This function should be implemented from the Session Layer and
- * will be called from CAN-TP (transport/network) layer to inform it
- * from a beginning of a reception of a segmented message with a
- * given length coming from given "id" and "idt"
+ * This function is a part of the Receiver side.
+ * It should be implemented from the Session Layer and will be called
+ * from CAN-TP (transport/network) layer to inform it for a beginning
+ * of a reception of a segmented message with a given length coming
+ * from given "id" and "idt"
  *
- * The session layer can perform some tasks as dedicate some buffers
- * for the data etc.
+ * The session layer should allocate a memory for the data buffer
+ * and perform some other tasks.
  */
-void cantp_rcvd_ff_cb(cantp_rxtx_status_t *ctx,
-			uint32_t id, uint8_t idt, uint8_t *data, uint16_t len);
+void cantp_rcvr_rx_ff_cb(uint32_t id, uint8_t idt, uint8_t **data, uint16_t len);
+
+/*
+ * void cantp_tx_done_cb(void);
+ *
+ * This function is a part of the Sender side.
+ * It should be implemented from the Session Layer and will be called
+ * from CAN-TP (transport/network) layer to inform it for the end
+ * transmission of the segmented message.
+ *
+ */
+void cantp_tx_done_cb(void);
 
 /*
  * cantp_tx_timer_cb(cantp_rxtx_status_t *ctx)
