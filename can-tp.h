@@ -118,13 +118,15 @@ enum {
 	CANTP_STATE_IDOL	= 0,
 	CANTP_STATE_SF_SENDING,			//SF sent to CAN driver and waiting for response
 //	CANTP_STATE_SF_SENT,			//SF sending successful
-	CANTP_STATE_FF_SENDING,			//SF sent to CAN driver and waiting for response
+	CANTP_STATE_FF_SENDING,			//SF sent to link layer and waiting for confirmance
 	CANTP_STATE_FF_SENT,			//First frame sent from the Sender
 	CANTP_STATE_FF_RCVD,			//First frame received from Receiver
 	CANTP_STATE_FF_FC_WAIT,			//First frame sent but waiting for FC frame
 	CANTP_STATE_FC_SENDING,			//Flow control frame sending from the receiver
+	CANTP_STATE_FC_SENT,			//FC is already sent from the Receiver
 	CANTP_STATE_FC_RCVD,			//Flow control frame received from the receiver
 	CANTP_STATE_CF_WAIT,			//Consecutive frame waiting from the receiver
+	CANTP_STATE_CF_SENDING,			//CF sent to link layer but TX is not confirmed
 	CANTP_STATE_CF_SENT,			//Consecutive frame sent (see sequence number)
 	CANTP_STATE_CF_FC_WAIT,			//Consecutive frame sent but waiting for FC frame
 	CANTP_STATE_TX_DONE,
@@ -132,8 +134,9 @@ enum {
 
 typedef struct cantp_rxtx_state_s {
 	uint8_t state;
-	uint32_t id;
-	uint8_t idt;
+	uint32_t id;			//CAN-LL Identifier
+	uint32_t peer_id;		//CAN-ID of the other peer that we are communicating with
+	uint8_t idt;			//CAN-LL ID Type (11-bit or 29-bit)
 	uint8_t *data;			//pointer to a buffer of data to be sent/received
 	uint16_t len;			//Number of bytes that should be send/received
 	uint16_t index;			//Bytes already sent/received when using segmented data

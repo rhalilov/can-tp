@@ -76,6 +76,8 @@ void cantp_received_cb(cantp_rxtx_status_t *ctx,
 		printf("0x%02x ", data[i]);
 	}
 	printf("\n"); fflush(0);
+	//spend some time here
+	usleep(100000);
 }
 
 void cantp_rcvd_ff_cb(cantp_rxtx_status_t *ctx,
@@ -100,7 +102,7 @@ static void cantp_rx_t_cb(cbtimer_t *tim)
 
 void receiver_task(uint32_t id, uint8_t idt, uint8_t rx_bs, uint8_t rx_st)
 {
-	printf("\033[0;33mInitializing the Receiver side\033[0m\n");fflush(0);
+	printf("\033[0;33mInitializing the Receiver side\033[0m ");fflush(0);
 	static cantp_rxtx_status_t ctp_rcvr_state = { 0 };
 	static cbtimer_t ctp_rcvr_timer;
 	long cdrv_rcvr_tx_delay = 1000;
@@ -109,7 +111,9 @@ void receiver_task(uint32_t id, uint8_t idt, uint8_t rx_bs, uint8_t rx_st)
 	ctp_rcvr_state.idt = idt;
 
 	fake_can_init(cdrv_rcvr_tx_delay, "\033[0;34mCAN-LL Receiver\033[0m",
-										&ctp_rcvr_state, FAKE_CAN_RECEIVER);
+										&ctp_rcvr_state, CAN_LL_RECEIVER);
+
+	printf("\033[0;33mReceiver pid = %d \033[0m\n", getpid());
 
 	cantp_rx_params_init(&ctp_rcvr_state, rx_bs, rx_st);
 	cantp_set_timer_ptr(&ctp_rcvr_timer, &ctp_rcvr_state);
@@ -119,7 +123,9 @@ void receiver_task(uint32_t id, uint8_t idt, uint8_t rx_bs, uint8_t rx_st)
 	msync(&sndr_wait_rcvr_sem->sem, sizeof(size_t), MS_SYNC);
 	sem_post(&sndr_wait_rcvr_sem->sem);
 
-	fake_can_rx_task(&ctp_rcvr_state);
+	do {
+		fake_can_rx_task(&ctp_rcvr_state);
+	} while (1);
 }
 
 //There are two different sides of the test:
@@ -140,7 +146,7 @@ void receiver_task(uint32_t id, uint8_t idt, uint8_t rx_bs, uint8_t rx_st)
 
 int main(int argc, char **argv)
 {
-	long cdrv_sndr_tx_delay = 1000;
+	long cdrv_sndr_tx_delay = 100000;
 	if (argc > 1) {
 		cdrv_sndr_tx_delay = atoi(argv[1]);
 		printf("candrv_tx_delay = %ldμs\n", cdrv_sndr_tx_delay);
@@ -156,17 +162,16 @@ int main(int argc, char **argv)
 	sem_init(&sndr_wait_rcvr_sem->sem, 1, 0);
 	sndr_wait_rcvr_sem->i = 0;
 
-	printf("Initializing the Sender side\n");
+	printf("\033[0;35mInitializing the Sender side\033[0m ");
 	static cantp_rxtx_status_t cantp_sndr_state;
 	fake_can_init(cdrv_sndr_tx_delay, "\033[1;30mCAN-LL Sender\033[0m",
-											&cantp_sndr_state, FAKE_CAN_SENDER);
+											&cantp_sndr_state, CAN_LL_SENDER);
 
 	//Maybe is better to use threads instead of fork()
 	//but someone can improve it if he wants
 	pid_t pid = fork();
 	if (pid == (pid_t) 0) {
 		//This is the child process.
-		printf("Receiver pid = %d\n", getpid());
 		receiver_task(0xbbb, 0, 0, 0);
 		printf("Receiver END\n"); fflush(0);
 		return EXIT_SUCCESS;
@@ -174,7 +179,7 @@ int main(int argc, char **argv)
 		fprintf(stderr, "Fork failed.\n");
 		return EXIT_FAILURE;
 	}
-	printf("Sender pid = %d\n", getpid());
+	printf("\033[0;35mSender pid = %d\033[0m\n", getpid());
 //	printf("pid = %d\n", pid);
 
 	uint16_t dlen = 16;
@@ -190,10 +195,12 @@ int main(int argc, char **argv)
 	//First wait for Receiver to be initialized
 	sem_wait(&sndr_wait_rcvr_sem->sem);
 
-	printf("------We can send now------\n");
+	printf("\033[0;35mSender can send now \033[0m\n");
 	cantp_send(&cantp_sndr_state, 0xAAA, 0, data, dlen);
 
-	fake_can_rx_task(&cantp_sndr_state);
+	do {
+		fake_can_rx_task(&cantp_sndr_state);
+	} while (1);
 
 	sem_wait(&sndr_wait_rcvr_sem->sem);
 //	kill(pid, SIGHUP);

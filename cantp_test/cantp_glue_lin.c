@@ -20,7 +20,7 @@ static const char *cantp_frame_t_enum_str[] = {
 
 void print_cantp_frame(cantp_frame_t cantp_frame)
 {
-	printf("\033[0;32m(N_PCItype: %s)\033[0m ",
+	printf("\033[0;32m%s frame\033[0m ",
 					cantp_frame_t_enum_str[cantp_frame.n_pci_t]);
 	for (uint8_t i=0; i < 8; i++) {
 		printf("0x%02x ", cantp_frame.u8[i]);

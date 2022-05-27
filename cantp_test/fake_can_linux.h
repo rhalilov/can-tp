@@ -8,9 +8,19 @@
 #ifndef _FAKE_CAN_LINUX_H_
 #define _FAKE_CAN_LINUX_H_
 
-enum {
-	FAKE_CAN_SENDER = 0,
-	FAKE_CAN_RECEIVER
+#ifndef GENERATE_ENUM
+#define GENERATE_ENUM(ENUM) ENUM,
+#endif
+#ifndef GENERATE_STRING
+#define GENERATE_STRING(STRING) #STRING,
+#endif
+
+#define FOREACH_CAN_LL_PEER_TYPE(CAN_LL_PEER_TYPE) \
+	CAN_LL_PEER_TYPE(CAN_LL_SENDER) \
+	CAN_LL_PEER_TYPE(CAN_LL_RECEIVER) \
+
+enum CAN_LL_PEER_TYPE_ENUM {
+	FOREACH_CAN_LL_PEER_TYPE(GENERATE_ENUM)
 };
 
 int fake_can_tx_nb(uint32_t id, uint8_t idt, uint8_t dlc, uint8_t *data);
