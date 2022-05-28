@@ -90,8 +90,8 @@ void cantp_rcvr_rx_ff_cb(uint32_t id, uint8_t idt, uint8_t **data, uint16_t len)
 		printf("\033[0;36mCAN-SL Receiver: ERROR allocating memory\033[0m\n");
 		fflush(0);
 	}
-	printf("\033[0;36mCAN-SL Receiver: Memory allocated: %ld\033[0m\n", (long)(*data));
-	fflush(0);
+//	printf("\033[0;36mCAN-SL Receiver: Memory allocated: %ld\033[0m\n", (long)(*data));
+//	fflush(0);
 }
 
 void cantp_sndr_tx_done_cb(void)
@@ -130,6 +130,7 @@ void receiver_task(uint32_t id, uint8_t idt, uint8_t rx_bs, uint8_t rx_st)
 	sem_post(&sndr_wait_rcvr_sem->sem);
 
 	do {
+		usleep(1000);
 		fake_can_rx_task(&ctp_rcvr_state);
 	} while (1);
 }

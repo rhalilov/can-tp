@@ -67,6 +67,30 @@ enum CANTP_FC_FLOW_STATUS_ENUM {
 #define CANTP_FF_LEN_H(x) ((uint8_t)((0xF00 & x) >> 8))
 #define CANTP_FF_LEN_L(x) ((uint16_t)(0xFF & x))
 
+
+//Please note that the both roles "Receiver" and "Sender" form CAN-TP
+// point of view can send and receive CAN frames (link layer)
+#define FOREACH_CANTP_STATE(CANTP_STATE) \
+		CANTP_STATE(CANTP_STATE_IDOL) \
+		CANTP_STATE(CANTP_STATE_SF_SENDING)	/*SF sent to CAN driver and waiting for response */ \
+		CANTP_STATE(CANTP_STATE_SF_SENT) 	/*SF sending successful                          */ \
+		CANTP_STATE(CANTP_STATE_FF_SENDING)	/*SF sent to link layer and waiting for confirma */ \
+		CANTP_STATE(CANTP_STATE_FF_SENT) 	/*First frame sent from the Sender               */ \
+		CANTP_STATE(CANTP_STATE_FF_RCVD) 	/*First frame received from Receiver             */ \
+		CANTP_STATE(CANTP_STATE_FF_FC_WAIT)	/*First frame sent but waiting for FC frame      */ \
+		CANTP_STATE(CANTP_STATE_FC_SENDING)	/*Flow control frame sending from the receiver   */ \
+		CANTP_STATE(CANTP_STATE_FC_SENT) 	/*FC is already sent from the Receiver           */ \
+		CANTP_STATE(CANTP_STATE_FC_RCVD) 	/*Flow control frame received from the receiver  */ \
+		CANTP_STATE(CANTP_STATE_CF_WAIT) 	/*Consecutive frame waiting from the receiver    */ \
+		CANTP_STATE(CANTP_STATE_CF_SENDING)	/*CF sent to link layer but TX is not confirmed  */ \
+		CANTP_STATE(CANTP_STATE_CF_SENT) 	/*CF sent. Next will send another CF*/ \
+		CANTP_STATE(CANTP_STATE_CF_FC_WAIT)	/*CF sent. Waiting for FC frame */ \
+		CANTP_STATE(CANTP_STATE_TX_DONE)
+
+enum CANTP_STATE_ENUM {
+		FOREACH_CANTP_STATE(GENERATE_ENUM)
+};
+
 #define CANTP_SF_NUM_DATA_BYTES	7
 #define CANTP_FF_NUM_DATA_BYTES	6
 #define CANTP_CF_NUM_DATA_BYTES 7
@@ -111,26 +135,6 @@ typedef struct __attribute__((packed)) {
 		};
 	};
 } cantp_frame_t;
-
-//Please note that the both roles "Receiver" and "Sender" form CAN-TP
-// point of view can send and receive CAN frames (link layer)
-enum {
-	CANTP_STATE_IDOL	= 0,
-	CANTP_STATE_SF_SENDING,			//SF sent to CAN driver and waiting for response
-//	CANTP_STATE_SF_SENT,			//SF sending successful
-	CANTP_STATE_FF_SENDING,			//SF sent to link layer and waiting for confirmance
-	CANTP_STATE_FF_SENT,			//First frame sent from the Sender
-	CANTP_STATE_FF_RCVD,			//First frame received from Receiver
-	CANTP_STATE_FF_FC_WAIT,			//First frame sent but waiting for FC frame
-	CANTP_STATE_FC_SENDING,			//Flow control frame sending from the receiver
-	CANTP_STATE_FC_SENT,			//FC is already sent from the Receiver
-	CANTP_STATE_FC_RCVD,			//Flow control frame received from the receiver
-	CANTP_STATE_CF_WAIT,			//Consecutive frame waiting from the receiver
-	CANTP_STATE_CF_SENDING,			//CF sent to link layer but TX is not confirmed
-	CANTP_STATE_CF_SENT,			//Consecutive frame sent (see sequence number)
-	CANTP_STATE_CF_FC_WAIT,			//Consecutive frame sent but waiting for FC frame
-	CANTP_STATE_TX_DONE,
-};
 
 typedef struct cantp_rxtx_state_s {
 	uint8_t state;
@@ -294,7 +298,7 @@ void cantp_canrx_cb(uint32_t id, uint8_t idt, uint8_t dlc,
 void cantp_rcvr_rx_ff_cb(uint32_t id, uint8_t idt, uint8_t **data, uint16_t len);
 
 /*
- * void cantp_tx_done_cb(void);
+ * void cantp_sndr_tx_done_cb(void);
  *
  * This function is a part of the Sender side.
  * It should be implemented from the Session Layer and will be called
@@ -302,7 +306,7 @@ void cantp_rcvr_rx_ff_cb(uint32_t id, uint8_t idt, uint8_t **data, uint16_t len)
  * transmission of the segmented message.
  *
  */
-void cantp_tx_done_cb(void);
+void cantp_sndr_tx_done_cb(void);
 
 /*
  * cantp_tx_timer_cb(cantp_rxtx_status_t *ctx)

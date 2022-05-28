@@ -18,11 +18,41 @@ static const char *cantp_frame_t_enum_str[] = {
 		FOREACH_CANTP_N_PCI_TYPE(GENERATE_STRING)
 };
 
+static const char *cantp_fc_flow_status_enum_str[] = {
+		FOREACH_CANTP_FC_FLOW_STATUS(GENERATE_STRING)
+};
 void print_cantp_frame(cantp_frame_t cantp_frame)
 {
-	printf("\033[0;32m%s frame\033[0m ",
+	printf("\033[0;32m%s frame ",
 					cantp_frame_t_enum_str[cantp_frame.n_pci_t]);
-	for (uint8_t i=0; i < 8; i++) {
+	uint8_t datalen;
+	uint8_t *dataptr;
+	switch (cantp_frame.n_pci_t) {
+	case CANTP_SINGLE_FRAME: {
+			printf("len=%d \033[0m", cantp_frame.sf.len);
+			datalen = CANTP_SF_NUM_DATA_BYTES;
+			dataptr = cantp_frame.ff.d;
+		} break;
+	case CANTP_FIRST_FRAME: {
+			printf("len=%d \033[0m", cantp_ff_len_get(&cantp_frame.ff));
+			datalen = CANTP_FF_NUM_DATA_BYTES;
+			dataptr = cantp_frame.ff.d;
+		} break;
+	case CANTP_CONSEC_FRAME: {
+			printf("SN=%x \033[0m", cantp_frame.cf.sn);
+			datalen = CANTP_CF_NUM_DATA_BYTES;
+			dataptr = cantp_frame.cf.d;
+		} break;
+	case CANTP_FLOW_CONTROLL: {
+			printf("FlowStatus=%s BlockSize=%d STmin=%x \033[0m",
+					cantp_fc_flow_status_enum_str[cantp_frame.fc.fs],
+					cantp_frame.fc.bs,
+					cantp_frame.fc.st);
+			datalen = 0;
+			dataptr = NULL;
+		} break;
+	}
+	for (uint8_t i=0; i < datalen; i++) {
 		printf("0x%02x ", cantp_frame.u8[i]);
 	}
 	printf("\n");fflush(0);

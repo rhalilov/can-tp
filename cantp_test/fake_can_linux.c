@@ -65,7 +65,7 @@ static char *candrv_name;
 
 int fake_can_rx_task(void *params)
 {
-	fake_can_log("%s fake_can_rx_task PID=%d Ready\n", candrv_name, getpid());
+	fake_can_log("%s fake_can_rx_task PID=%d Waiting to receive data\n", candrv_name, getpid());
 	fake_can_phy_t can_frame;
 	ssize_t rlen = fread(can_frame.u8, 1, sizeof(fake_can_phy_t), rx_stream);
 	if (rlen == sizeof(fake_can_phy_t)) {
@@ -98,17 +98,8 @@ static void candrv_txnb_timer_cb(cbtimer_t *t)
 	//the current transmit is on non blocking mode
 	//so we need to call the callback function to inform
 	//the caller (sender) for completion of the transmission
-	fake_can_log("%s: TX Done. Calling CB\n",  candrv_name); fflush(0);
+//	fake_can_log("%s: TX Done. Calling CB\n",  candrv_name); fflush(0);
 	fake_cantx_confirm_cb(t->cb_params);
-}
-
-static void candrv_tx_timer_cb(cbtimer_t *t)
-{
-	fake_can_log("%s: Sending %ld bytes\n", candrv_name, sizeof(fake_can_phy_t));
-	ssize_t wlen = candrv_send();
-	//in blocking mode we just informing the fake_can_tx()
-	//function that the transmission has being completed
-	sem_post(&tx_done_sem);
 }
 
 int fake_can_tx_nb(uint32_t id, uint8_t idt, uint8_t dlc, uint8_t *data)
@@ -120,8 +111,18 @@ int fake_can_tx_nb(uint32_t id, uint8_t idt, uint8_t dlc, uint8_t *data)
 		can_frame.data[i] = data[i];
 	}
 	fake_can_log("%sNB: ", candrv_name);
-	cbtimer_start(&candrv_txnb_timer, candrv_tx_delay_us);
+//	cbtimer_start(&candrv_txnb_timer, candrv_tx_delay_us);
+	candrv_txnb_timer_cb(&candrv_txnb_timer);
 	// follows at candrv_txnb_timer_cb(cbtimer_t *t)
+}
+
+static void candrv_tx_timer_cb(cbtimer_t *t)
+{
+	fake_can_log("%s: Sending %ld bytes\n", candrv_name, sizeof(fake_can_phy_t));
+	ssize_t wlen = candrv_send();
+	//in blocking mode we just informing the fake_can_tx()
+	//function that the transmission has being completed
+	sem_post(&tx_done_sem);
 }
 
 int fake_can_tx(uint32_t id, uint8_t idt, uint8_t dlc, uint8_t *data)
