@@ -70,7 +70,7 @@ void cantp_result_cb(int result)
 void cantp_received_cb(cantp_rxtx_status_t *ctx,
 					uint32_t id, uint8_t idt, uint8_t *data, uint8_t len)
 {
-	printf("\033[0;33mCAN-SL Receiver Received "
+	printf("\033[0;36mCAN-SL Receiver Received "
 			"from ID=0x%06x IDT=%d :\033[0m ", id, idt);
 	for (uint16_t i = 0; i < len; i++) {
 		printf("0x%02x ", data[i]);
