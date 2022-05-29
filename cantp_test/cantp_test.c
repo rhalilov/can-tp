@@ -80,7 +80,7 @@ void cantp_received_cb(cantp_rxtx_status_t *ctx,
 	usleep(100000);
 }
 
-void cantp_rcvr_rx_ff_cb(uint32_t id, uint8_t idt, uint8_t **data, uint16_t len)
+int cantp_rcvr_rx_ff_cb(uint32_t id, uint8_t idt, uint8_t **data, uint16_t len)
 {
 	printf("\033[0;36mCAN-SL Receiver: Received First Frame "
 			"from ID=0x%06x IDT=%d CAN-TP Message LEN=%d\033[0m \n",
@@ -90,6 +90,15 @@ void cantp_rcvr_rx_ff_cb(uint32_t id, uint8_t idt, uint8_t **data, uint16_t len)
 		printf("\033[0;36mCAN-SL Receiver: ERROR allocating memory\033[0m\n");
 		fflush(0);
 	}
+
+	//Here maybe should be checked if the ID of the Sender is correct
+	//(we are expecting sender with this ID)
+
+	if (id == 0x000aaa) {
+		return 0;
+	}
+	printf("\033[0;36mCAN-SL Receiver:\033[0;31m Rejected the frame\033[0m\n");
+	return -1;
 //	printf("\033[0;36mCAN-SL Receiver: Memory allocated: %ld\033[0m\n", (long)(*data));
 //	fflush(0);
 }
@@ -203,7 +212,7 @@ int main(int argc, char **argv)
 	sem_wait(&sndr_wait_rcvr_sem->sem);
 
 	printf("\033[0;35mSender can send now \033[0m\n");
-	cantp_send(&cantp_sndr_state, 0xAAA, 0, data, dlen);
+	cantp_send(&cantp_sndr_state, 0xaaa, 0, data, dlen);
 
 	do {
 		fake_can_rx_task(&cantp_sndr_state);

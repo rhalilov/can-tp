@@ -71,7 +71,7 @@ enum CANTP_FC_FLOW_STATUS_ENUM {
 //Please note that the both roles "Receiver" and "Sender" form CAN-TP
 // point of view can send and receive CAN frames (link layer)
 #define FOREACH_CANTP_STATE(CANTP_STATE) \
-		CANTP_STATE(CANTP_STATE_IDOL) \
+		CANTP_STATE(CANTP_STATE_IDLE) \
 		CANTP_STATE(CANTP_STATE_SF_SENDING)	/*SF sent to CAN driver and waiting for response */ \
 		CANTP_STATE(CANTP_STATE_SF_SENT) 	/*SF sending successful                          */ \
 		CANTP_STATE(CANTP_STATE_FF_SENDING)	/*SF sent to link layer and waiting for confirma */ \
@@ -294,8 +294,11 @@ void cantp_canrx_cb(uint32_t id, uint8_t idt, uint8_t dlc,
  *
  * The session layer should allocate a memory for the data buffer
  * and perform some other tasks.
+ *
+ * returns:
+ * 0 if the Receiver accepts the connection from this ID (Sender)
  */
-void cantp_rcvr_rx_ff_cb(uint32_t id, uint8_t idt, uint8_t **data, uint16_t len);
+int cantp_rcvr_rx_ff_cb(uint32_t id, uint8_t idt, uint8_t **data, uint16_t len);
 
 /*
  * void cantp_sndr_tx_done_cb(void);
