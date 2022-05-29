@@ -65,7 +65,8 @@ static char *candrv_name;
 
 int fake_can_rx_task(void *params)
 {
-	fake_can_log("%s fake_can_rx_task PID=%d Waiting to receive data\n", candrv_name, getpid());
+	fake_can_log("%s fake_can_rx_task PID=%d Waiting to receive data\n",
+				candrv_name, getpid()); fflush(0);
 	fake_can_phy_t can_frame;
 	ssize_t rlen = fread(can_frame.u8, 1, sizeof(fake_can_phy_t), rx_stream);
 	if (rlen == sizeof(fake_can_phy_t)) {

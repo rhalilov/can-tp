@@ -78,6 +78,10 @@ void cantp_received_cb(cantp_rxtx_status_t *ctx,
 	printf("\n"); fflush(0);
 	//spend some time here
 	usleep(100000);
+
+	sndr_wait_rcvr_sem->i = 1;
+	msync(&sndr_wait_rcvr_sem->sem, sizeof(size_t), MS_SYNC);
+	sem_post(&sndr_wait_rcvr_sem->sem);
 }
 
 int cantp_rcvr_rx_ff_cb(uint32_t id, uint8_t idt, uint8_t **data, uint16_t len)
@@ -198,7 +202,7 @@ int main(int argc, char **argv)
 	printf("\033[0;35mSender pid = %d\033[0m\n", getpid());
 //	printf("pid = %d\n", pid);
 
-	uint16_t dlen = 16;
+	uint16_t dlen = 32;
 	uint8_t *data = malloc(dlen);
 	for (uint16_t i = 0; i < dlen; i++) {
 		data[i] = (uint8_t)(0xff & i) + 1;
@@ -214,9 +218,10 @@ int main(int argc, char **argv)
 	printf("\033[0;35mSender can send now \033[0m\n");
 	cantp_send(&cantp_sndr_state, 0xaaa, 0, data, dlen);
 
-	do {
+//	do {
 		fake_can_rx_task(&cantp_sndr_state);
-	} while (1);
+//		printf("------------------------------------\n"); fflush(0);
+//	} while (1);
 
 	sem_wait(&sndr_wait_rcvr_sem->sem);
 //	kill(pid, SIGHUP);
