@@ -97,7 +97,7 @@ int cantp_rcvr_rx_ff_cb(uint32_t id, uint8_t idt, uint8_t **data, uint16_t len)
 
 	//Here maybe should be checked if the ID of the Sender is correct
 	//(we are expecting sender with this ID)
-
+	usleep(10000);
 	if (id == 0x000aaa) {
 		return 0;
 	}
@@ -172,8 +172,8 @@ int main(int argc, char **argv)
 		printf("candrv_tx_delay = %ldμs\n", cdrv_sndr_tx_delay);
 	}
 
-	sndr_wait_rcvr_sem = (semint_t*) mmap(NULL, sizeof(semint_t), PROT_READ | PROT_WRITE,
-										MAP_ANONYMOUS | MAP_SHARED, 0, 0);
+	sndr_wait_rcvr_sem = (semint_t*) mmap(NULL, sizeof(semint_t),
+				PROT_READ | PROT_WRITE, MAP_ANONYMOUS | MAP_SHARED, 0, 0);
 	if (sndr_wait_rcvr_sem == MAP_FAILED) {
 		printf("Couldn't initialize semaphore mapping\n");
 		return EXIT_FAILURE;
@@ -202,7 +202,7 @@ int main(int argc, char **argv)
 	printf("\033[0;35mSender pid = %d\033[0m\n", getpid());
 //	printf("pid = %d\n", pid);
 
-	uint16_t dlen = 32;
+	uint16_t dlen = 16;
 	uint8_t *data = malloc(dlen);
 	for (uint16_t i = 0; i < dlen; i++) {
 		data[i] = (uint8_t)(0xff & i) + 1;
@@ -224,7 +224,7 @@ int main(int argc, char **argv)
 //	} while (1);
 
 	sem_wait(&sndr_wait_rcvr_sem->sem);
-//	kill(pid, SIGHUP);
+	kill(pid, SIGHUP);
 	printf("EndMain\n");fflush(0);
 	return 0;
 }

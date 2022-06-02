@@ -67,8 +67,8 @@ void cantp_cantx_confirm_cb(cantp_rxtx_status_t *ctx)
 			//that the FF has being acknowledged (sent)
 			//ISO 15765-2:2016 Figure 11 step(Key) 2
 			ctx->state = CANTP_STATE_FF_SENT;
-			printf("\033[0;35m\tCAN-TP Sender: Received TX confirmation of FF\033[0m\n");
-			fflush(0);
+			printf("\033[0;35m\tCAN-TP Sender: "
+						"Received TX confirmation of FF\033[0m\n"); fflush(0);
 
 			//so we are stopping N_As timer
 			printf("\033[0;35m\tCAN-TP Sender: \033[0m");
@@ -78,6 +78,7 @@ void cantp_cantx_confirm_cb(cantp_rxtx_status_t *ctx)
 			printf("\033[0;35m\tCAN-TP Sender: \033[0m");
 			cantp_timer_start(ctx->timer, "N_Bs", 1000 * CANTP_N_BS_TIMER_MS);
 			fflush(0);
+
 			//Setting the sequence number so that the next transmission
 			//of the Consecutive Frame start with 1
 			ctx->sn = 1;
@@ -294,11 +295,11 @@ static inline void cantp_rx_first_frame(uint32_t id,
 
 	//Stopping timer N_Br. This is the time of processing cantp_rcvd_ff_cb()
 	printf("\033[0;33m\tCAN-TP Receiver: \033[0m");
-	cantp_timer_stop(ctx->timer);
+	cantp_timer_stop(ctx->timer); fflush(0);
 
-	//Starting timer A_Cr
+	//Starting timer N_Ar
 	printf("\033[0;33m\tCAN-TP Receiver: \033[0m");
-	cantp_timer_start(ctx->timer, "N_Ar", 1000 * CANTP_N_AR_TIMER_MS);
+	cantp_timer_start(ctx->timer, "N_Ar", 1000 * CANTP_N_AR_TIMER_MS); fflush(0);
 
 	rcvr_tx_frame.n_pci_t = CANTP_FLOW_CONTROLL;
 	rcvr_tx_frame.fc.bs = ctx->bs;
@@ -311,12 +312,14 @@ static inline void cantp_rx_first_frame(uint32_t id,
 
 	//Sending FC frame
 	cantp_can_tx(ctx->id, ctx->idt, 8, rcvr_tx_frame.u8);
-	if (cantp_can_wait_txdone(1000 * CANTP_N_AR_TIMER_MS) < 0) {
-		//Abort message reception and issue N_USData.indication
-		//with <N_Result> = N_TIMEOUT_A
-		cantp_result_cb(CANTP_RESULT_N_TIMEOUT_A);
-	}
+	//TODO: CANLL should implement timer
+//	if (cantp_can_wait_txdone(1000 * CANTP_N_AR_TIMER_MS) < 0) {
+//		//Abort message reception and issue N_USData.indication
+//		//with <N_Result> = N_TIMEOUT_A
+//		cantp_result_cb(CANTP_RESULT_N_TIMEOUT_A);
+//	}
 	ctx->state = CANTP_STATE_FC_SENT;
+
 	//Stopping timer N_Ar
 	printf("\033[0;33m\tCAN-TP Receiver: \033[0m");
 	cantp_timer_stop(ctx->timer); fflush(0);
