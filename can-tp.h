@@ -8,6 +8,9 @@
 #ifndef _CAN_TP_H_
 #define _CAN_TP_H_
 
+//#define cantp_timer_log printf
+#define cantp_timer_log
+
 #ifndef GENERATE_ENUM
 #define GENERATE_ENUM(ENUM) ENUM,
 #endif
@@ -214,12 +217,7 @@ int cantp_can_tx_nb(uint32_t id, uint8_t idt, uint8_t dlc, uint8_t *data);
  * Same as cantp_can_tx_nb() but blocks untill the CAN Frame is sent.
  * Should be implemented from physical/link layer (CAN Driver)
  */
-int cantp_can_tx(uint32_t id, uint8_t idt, uint8_t dlc, uint8_t *data);
-
-/*
- *
- */
-int cantp_can_wait_txdone(long tout_us);
+int cantp_can_tx(uint32_t id, uint8_t idt, uint8_t dlc, uint8_t *data, long tout_us);
 
 /*
  * This function should be called from the data link layer (CAN Driver)

@@ -8,6 +8,8 @@
 #ifndef _CBTIMER_LIN_H_
 #define _CBTIMER_LIN_H_
 
+#define CBTIMER_LOG 0
+
 enum cbtimer_status {
 	CBTIMER_RUN = 1,
 	CBTIMER_STOP = 2
