@@ -26,6 +26,7 @@ void cbtimer_cb(union sigval sev)
 	cbtimer_t *tim = sev.sival_ptr;
 	if (atomic_load(&tim->status) == CBTIMER_RUN) {
 		atomic_store(&tim->status, CBTIMER_STOP);
+		sem_post(&tim->sem_expired);
 		cbtimer_log ("Timer expired %s "
 //				"(0x%08x) "
 				"%ld\n",
@@ -47,6 +48,7 @@ int cbtimer_set_cb(cbtimer_t *tim, void (*cb)(struct cbtimer_s *timer),
 	tim->cb = cb;
 	tim->cb_params = cb_params;
 	tim->name = NULL;
+	sem_init(&tim->sem_expired, 1, 0);
 	if (timer_create(CLOCK_REALTIME, &sev, &tim->timerId)) {
 		cbtimer_log("Error: timer_create\n"); cbtimer_flush(0);
 		return -1;
@@ -104,4 +106,9 @@ int cbtimer_is_expired(cbtimer_t *tim)
 	int ovr = timer_getoverrun(&tim->status);
 	cbtimer_log("timer_getoverrun = %d\n", ovr); cbtimer_flush(0);
 	return (ovr > 0);
+}
+
+void cbtimer_wait_to_expire(cbtimer_t *tim)
+{
+	sem_wait(&tim->sem_expired);
 }

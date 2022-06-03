@@ -79,7 +79,7 @@ void cantp_received_cb(cantp_rxtx_status_t *ctx,
 
 int cantp_rcvr_rx_ff_cb(uint32_t id, uint8_t idt, uint8_t **data, uint16_t len)
 {
-	printf("\033[0;35mCAN-SL Receiver: Received First Frame "
+	printf("\033[0;35mCAN-SL Receiver: (R2.3)Received First Frame "
 			"from ID=0x%06x IDT=%d CAN-TP Message LEN=%d\033[0m \n",
 			id, idt, len); fflush(0);
 	*data = malloc(len);
@@ -117,7 +117,7 @@ void receiver_task(uint32_t id, uint8_t idt, uint8_t rx_bs, uint8_t rx_st)
 {
 	printf("\033[0;33mInitializing the Receiver side\033[0m ");fflush(0);
 	static cantp_rxtx_status_t ctp_rcvr_state = { 0 };
-	static cbtimer_t ctp_rcvr_timer;
+
 	long cdrv_rcvr_tx_delay = 1000;
 
 	ctp_rcvr_state.id = id;
@@ -129,8 +129,14 @@ void receiver_task(uint32_t id, uint8_t idt, uint8_t rx_bs, uint8_t rx_st)
 	printf("\033[0;33mReceiver pid = %d \033[0m\n", getpid());
 
 	cantp_rx_params_init(&ctp_rcvr_state, rx_bs, rx_st);
+
+	static cbtimer_t ctp_rcvr_timer;
 	cantp_set_timer_ptr(&ctp_rcvr_timer, &ctp_rcvr_state);
 	cbtimer_set_cb(&ctp_rcvr_timer, cantp_rx_t_cb, &ctp_rcvr_state);
+	
+	static cbtimer_t ctp_st_timer;
+	cantp_set_st_timer_ptr(&ctp_st_timer, &ctp_rcvr_state);
+	cbtimer_set_cb(&ctp_st_timer, cantp_tx_st_t_cb, &ctp_rcvr_state);
 
 	msync(sndr_wait_rcvr_sem, sizeof(size_t), MS_SYNC);
 	sem_post(sndr_wait_rcvr_sem);
@@ -203,6 +209,10 @@ int main(int argc, char **argv)
 	static cbtimer_t ctp_sndr_timer;
 	cantp_set_timer_ptr(&ctp_sndr_timer, &cantp_sndr_state);
 	cbtimer_set_cb(&ctp_sndr_timer, cantp_tx_t_cb, &cantp_sndr_state);
+
+	static cbtimer_t ctp_st_timer;
+	cantp_set_st_timer_ptr(&ctp_st_timer, &cantp_sndr_state);
+	cbtimer_set_cb(&ctp_st_timer, cantp_tx_st_t_cb, &cantp_sndr_state);
 
 	//First wait for Receiver to be initialized
 	sem_wait(sndr_wait_rcvr_sem);

@@ -148,12 +148,13 @@ typedef struct cantp_rxtx_state_s {
 	uint16_t len;			//Number of bytes that should be send/received
 	uint16_t index;			//Bytes already sent/received when using segmented data
 	uint8_t sn;				//Sequence number
-	uint8_t bs;				//The number of CF that will be send/received without FC
+	uint8_t bs_rcvr;		//The number of CF that will be send/received without FC
 	uint8_t bl_index;		//counter related to bs
-	uint8_t st;				//SeparationTime minimum
+	uint8_t st_rcvr;		//SeparationTime minimum
 	uint32_t st_timer_us;	//timer related to st in μs (microseconds)
 	uint8_t error;			//Error code
 	void *timer;
+	void *st_timer;
 } cantp_rxtx_status_t;
 
 static inline void cantp_ff_len_set(cantp_frame_t *cantp_ff, uint16_t len)
@@ -171,14 +172,25 @@ static inline void cantp_rx_params_init(cantp_rxtx_status_t *ctx,
 											uint8_t rx_bs, uint8_t rx_st)
 {
 	//TODO: Do some checks here
-	ctx->bs = rx_bs;
-	ctx->st = rx_st;
+	ctx->bs_rcvr = rx_bs;
+	ctx->st_rcvr = rx_st;
 }
 
 static inline void cantp_set_timer_ptr(void *timer, cantp_rxtx_status_t *state)
 {
 	state->timer = timer;
 //	printf("cantp_timer(2) = %x\n", state->timer);
+}
+
+static inline void cantp_set_st_timer_ptr(void *timer, cantp_rxtx_status_t *state)
+{
+	state->st_timer = timer;
+//	printf("cantp_timer(2) = %x\n", state->timer);
+}
+
+static inline void cantp_set_sttimer_ptr(void *timer, cantp_rxtx_status_t *state)
+{
+	state->st_timer = timer;
 }
 
 /*
@@ -191,6 +203,11 @@ int cantp_timer_start(void *timer, char *name,  long tout_us);
  *
  */
 int cantp_is_timer_expired(void *timer);
+
+/*
+ *
+ */
+void cantp_timer_wait_to_expire(void *timer);
 
 /*
  * void cantp_timer_stop(void *timer);
@@ -316,6 +333,15 @@ void cantp_sndr_tx_done_cb(void);
  *
  */
 void cantp_tx_timer_cb(cantp_rxtx_status_t *ctx);
+
+/*
+ * cantp_tx_st_timer_cb(cantp_rxtx_status_t *ctx)
+ *
+ * Should be called on STmax expire event
+ *
+ */
+void cantp_tx_st_timer_cb(cantp_rxtx_status_t *ctx);
+
 
 /*
  * void cantp_rx_timer_cb(cantp_rxtx_status_t *ctx)
