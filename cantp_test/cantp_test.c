@@ -35,12 +35,7 @@ static const char *cantp_result_enum_str[] = {
 		FOREACH_CANTP_RESULT(GENERATE_STRING)
 };
 
-typedef struct {
-	sem_t sem;
-	int i;
-} semint_t;
-
-semint_t *sndr_wait_rcvr_sem;
+sem_t *sndr_wait_rcvr_sem;
 
 void fake_cantx_confirm_cb(void *params)
 {
@@ -62,9 +57,8 @@ void cantp_result_cb(int result)
 	}
 	printf("%s\033[0m\n", cantp_result_enum_str[result]);
 
-	sndr_wait_rcvr_sem->i = 1;
-	msync(&sndr_wait_rcvr_sem->sem, sizeof(size_t), MS_SYNC);
-	sem_post(&sndr_wait_rcvr_sem->sem);
+	msync(sndr_wait_rcvr_sem, sizeof(size_t), MS_SYNC);
+	sem_post(sndr_wait_rcvr_sem);
 }
 
 void cantp_received_cb(cantp_rxtx_status_t *ctx,
@@ -79,9 +73,8 @@ void cantp_received_cb(cantp_rxtx_status_t *ctx,
 	//spend some time here
 	usleep(100000);
 
-	sndr_wait_rcvr_sem->i = 1;
-	msync(&sndr_wait_rcvr_sem->sem, sizeof(size_t), MS_SYNC);
-	sem_post(&sndr_wait_rcvr_sem->sem);
+	msync(sndr_wait_rcvr_sem, sizeof(size_t), MS_SYNC);
+	sem_post(sndr_wait_rcvr_sem);
 }
 
 int cantp_rcvr_rx_ff_cb(uint32_t id, uint8_t idt, uint8_t **data, uint16_t len)
@@ -110,9 +103,8 @@ int cantp_rcvr_rx_ff_cb(uint32_t id, uint8_t idt, uint8_t **data, uint16_t len)
 void cantp_sndr_tx_done_cb(void)
 {
 	printf("CAN-SL Sender: TX Done \n"); fflush(0);
-	sndr_wait_rcvr_sem->i = 1;
-	msync(&sndr_wait_rcvr_sem->sem, sizeof(size_t), MS_SYNC);
-	sem_post(&sndr_wait_rcvr_sem->sem);
+	msync(sndr_wait_rcvr_sem, sizeof(size_t), MS_SYNC);
+	sem_post(sndr_wait_rcvr_sem);
 }
 
 static void cantp_rx_t_cb(cbtimer_t *tim)
@@ -140,9 +132,8 @@ void receiver_task(uint32_t id, uint8_t idt, uint8_t rx_bs, uint8_t rx_st)
 	cantp_set_timer_ptr(&ctp_rcvr_timer, &ctp_rcvr_state);
 	cbtimer_set_cb(&ctp_rcvr_timer, cantp_rx_t_cb, &ctp_rcvr_state);
 
-	sndr_wait_rcvr_sem->i = 1;
-	msync(&sndr_wait_rcvr_sem->sem, sizeof(size_t), MS_SYNC);
-	sem_post(&sndr_wait_rcvr_sem->sem);
+	msync(sndr_wait_rcvr_sem, sizeof(size_t), MS_SYNC);
+	sem_post(sndr_wait_rcvr_sem);
 
 	do {
 		usleep(1000);
@@ -174,15 +165,14 @@ int main(int argc, char **argv)
 		printf("candrv_tx_delay = %ldμs\n", cdrv_sndr_tx_delay);
 	}
 
-	sndr_wait_rcvr_sem = (semint_t*) mmap(NULL, sizeof(semint_t),
+	sndr_wait_rcvr_sem = (sem_t*) mmap(NULL, sizeof(sem_t),
 				PROT_READ | PROT_WRITE, MAP_ANONYMOUS | MAP_SHARED, 0, 0);
 	if (sndr_wait_rcvr_sem == MAP_FAILED) {
 		printf("Couldn't initialize semaphore mapping\n");
 		return EXIT_FAILURE;
 	}
 
-	sem_init(&sndr_wait_rcvr_sem->sem, 1, 0);
-	sndr_wait_rcvr_sem->i = 0;
+	sem_init(sndr_wait_rcvr_sem, 1, 0);
 
 	printf("\033[0;35mInitializing the Sender side\033[0m ");
 	static cantp_rxtx_status_t cantp_sndr_state;
@@ -215,7 +205,7 @@ int main(int argc, char **argv)
 	cbtimer_set_cb(&ctp_sndr_timer, cantp_tx_t_cb, &cantp_sndr_state);
 
 	//First wait for Receiver to be initialized
-	sem_wait(&sndr_wait_rcvr_sem->sem);
+	sem_wait(sndr_wait_rcvr_sem);
 
 	printf("\033[0;35mSender can send now \033[0m\n");
 	cantp_send(&cantp_sndr_state, 0xaaa, 0, data, dlen);
@@ -224,10 +214,10 @@ int main(int argc, char **argv)
 	do {
 		fake_can_rx_task(&cantp_sndr_state);
 //		printf("------------------------------------\n"); fflush(0);
-		sem_getvalue(&sndr_wait_rcvr_sem->sem, &semval);
+		sem_getvalue(sndr_wait_rcvr_sem, &semval);
 	} while (semval == 0);
 
-	sem_wait(&sndr_wait_rcvr_sem->sem);
+	sem_wait(sndr_wait_rcvr_sem);
 	//Stop Receiver's receiving process
 	kill(pid, SIGHUP);
 	printf("EndMain\n");fflush(0);
