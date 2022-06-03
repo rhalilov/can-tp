@@ -86,7 +86,7 @@ void cantp_received_cb(cantp_rxtx_status_t *ctx,
 
 int cantp_rcvr_rx_ff_cb(uint32_t id, uint8_t idt, uint8_t **data, uint16_t len)
 {
-	printf("\033[0;36mCAN-SL Receiver: Received First Frame "
+	printf("\033[0;35mCAN-SL Receiver: Received First Frame "
 			"from ID=0x%06x IDT=%d CAN-TP Message LEN=%d\033[0m \n",
 			id, idt, len); fflush(0);
 	*data = malloc(len);
@@ -110,7 +110,9 @@ int cantp_rcvr_rx_ff_cb(uint32_t id, uint8_t idt, uint8_t **data, uint16_t len)
 void cantp_sndr_tx_done_cb(void)
 {
 	printf("CAN-SL Sender: TX Done \n"); fflush(0);
-
+	sndr_wait_rcvr_sem->i = 1;
+	msync(&sndr_wait_rcvr_sem->sem, sizeof(size_t), MS_SYNC);
+	sem_post(&sndr_wait_rcvr_sem->sem);
 }
 
 static void cantp_rx_t_cb(cbtimer_t *tim)
@@ -192,7 +194,7 @@ int main(int argc, char **argv)
 	pid_t pid = fork();
 	if (pid == (pid_t) 0) {
 		//This is the child process.
-		receiver_task(0xbbb, 0, 0, 0);
+		receiver_task(0xbbb, 0, 2, 0);
 		printf("Receiver END\n"); fflush(0);
 		return EXIT_SUCCESS;
 	} else if (pid < (pid_t) 0) {
@@ -202,7 +204,7 @@ int main(int argc, char **argv)
 	printf("\033[0;35mSender pid = %d\033[0m\n", getpid());
 //	printf("pid = %d\n", pid);
 
-	uint16_t dlen = 16;
+	uint16_t dlen = 64;
 	uint8_t *data = malloc(dlen);
 	for (uint16_t i = 0; i < dlen; i++) {
 		data[i] = (uint8_t)(0xff & i) + 1;
@@ -218,12 +220,15 @@ int main(int argc, char **argv)
 	printf("\033[0;35mSender can send now \033[0m\n");
 	cantp_send(&cantp_sndr_state, 0xaaa, 0, data, dlen);
 
-//	do {
+	int semval;
+	do {
 		fake_can_rx_task(&cantp_sndr_state);
 //		printf("------------------------------------\n"); fflush(0);
-//	} while (1);
+		sem_getvalue(&sndr_wait_rcvr_sem->sem, &semval);
+	} while (semval == 0);
 
 	sem_wait(&sndr_wait_rcvr_sem->sem);
+	//Stop Receiver's receiving process
 	kill(pid, SIGHUP);
 	printf("EndMain\n");fflush(0);
 	return 0;

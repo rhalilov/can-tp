@@ -115,7 +115,7 @@ int fake_can_rx_task(void *params)
 void *fake_can_tx_ack_thread(void *arg)
 {
 	uint8_t confirm;
-	printf(" "); fflush(0);//it is not working without this line
+	printf(" \b"); fflush(0);//it is not working without this line
 	ssize_t rlen = fread(&confirm, 1, 1, rx_stream);
 
 	cbtimer_stop(&tx_timer_us);
