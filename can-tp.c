@@ -68,14 +68,14 @@ void cantp_cantx_confirm_cb(cantp_rxtx_status_t *ctx)
 			//ISO 15765-2:2016 Figure 11 step(Key) 2
 			ctx->state = CANTP_STATE_FF_SENT;
 			printf("\t\033[0;36mCAN-TP Sender:\033[0m "
-						"Received TX confirmation of First Frame\n"); fflush(0);
+						"(S2.1)Received TX confirmation of First Frame\n"); fflush(0);
 
 			//so we are stopping N_As timer
-			cantp_timer_log("\t\033[0;36mCAN-TP Sender: \033[0m");
+			cantp_timer_log("\t\033[0;36mCAN-TP Sender:\033[0m (S2.2)");
 			cantp_timer_stop(ctx->timer); fflush(0);
 
 			//starting new timer (N_Bs) for receiving Flow Control frame
-			cantp_timer_log("\t\033[0;36mCAN-TP Sender: \033[0m");
+			cantp_timer_log("\t\033[0;36mCAN-TP Sender:\033[0m (S2.3)");
 			cantp_timer_start(ctx->timer, "N_Bs", 1000 * CANTP_N_BS_TIMER_MS);
 			fflush(0);
 
@@ -89,10 +89,10 @@ void cantp_cantx_confirm_cb(cantp_rxtx_status_t *ctx)
 	case CANTP_STATE_CF_SENDING: {
 			//Sender has received a confirmation for transmission of a CF
 			printf("\t\033[0;36mCAN-TP Sender:\033[0m "
-							"Received TX confirmation of Consecutive Frame\n");
+							"(S6.1)Received TX confirmation of Consecutive Frame\n");
 
 			//stopping N_As timer
-			cantp_timer_log("\t\033[0;36mCAN-TP Sender: \033[0m");
+			cantp_timer_log("\t\033[0;36mCAN-TP Sender:\033[0m (S6.2)");
 			cantp_timer_stop(ctx->timer); fflush(0);
 
 			//Checking if it is Last Consecutive Frame
@@ -105,6 +105,7 @@ void cantp_cantx_confirm_cb(cantp_rxtx_status_t *ctx)
 			} else if (remaining == 0) {
 				//the last Consecutive frame (for which we just received the
 				//transmission confirmation) were the Last Consecutive Frame
+				printf("\t\033[0;36mCAN-TP Sender:\033[0m (16.1)\n"); fflush(0);
 				ctx->state = CANTP_STATE_TX_DONE;
 				cantp_sndr_tx_done_cb();
 				break;
@@ -120,17 +121,18 @@ void cantp_cantx_confirm_cb(cantp_rxtx_status_t *ctx)
 			//Consecutive Frames and then (the Receiver) will have to send
 			//a Flow Control frame
 			if (ctx->bs > 0) {
-
 				ctx->bl_index ++;
 				printf("\t\033[0;36mCAN-TP Sender:\033[0m "
 							"BlockSize=%d block sent so far %d\n",
 								ctx->bs, ctx->bl_index); fflush(0);
+
 				if (ctx->bl_index >= ctx->bs) {
 					ctx->bl_index = 0;
 					//We should wait for Flow Control Frame from the Receiver
 					printf("\t\033[0;36mCAN-TP Sender:\033[0m "
-							"Waiting for Flow Control Frame from Receiver\n");
-					cantp_timer_log("\t\033[0;36mCAN-TP Sender: \033[0m");
+							"(8.1)Waiting for Flow Control Frame from Receiver\n");
+
+					cantp_timer_log("\t\033[0;36mCAN-TP Sender:\033[0m (8.2)");
 					cantp_timer_start(ctx->timer, "N_Bs",
 										1000 * CANTP_N_BS_TIMER_MS); fflush(0);
 					ctx->state = CANTP_STATE_CF_FC_WAIT;
@@ -142,7 +144,7 @@ void cantp_cantx_confirm_cb(cantp_rxtx_status_t *ctx)
 //			printf("\033[0;36mCAN-TP Sender: "
 //									"Sending next Consecutive Frame\033[0m\n");
 			//starting timer N_Cs
-			cantp_timer_log("\t\033[0;36mCAN-TP Sender: \033[0m");
+			cantp_timer_log("\t\033[0;36mCAN-TP Sender:\033[0m (S6.3)");
 			cantp_timer_start(ctx->timer, "N_Cs",
 									1000 * CANTP_N_CS_TIMER_MS); fflush(0);
 
@@ -208,11 +210,11 @@ static inline void cantp_send_cf_afrer_fc(cantp_frame_t *rx_frame,
 	//only after a Flow Control frame or other Consecutive Frame
 
 	//Stopping N_Cs timer
-	cantp_timer_log("\t\033[0;36mCAN-TP Sender:\033[0m ");
+	cantp_timer_log("\t\033[0;36mCAN-TP Sender:\033[0m (S5.1)");
 	cantp_timer_stop(ctx->timer); fflush(0);
 
-	//starting timer A_Cs
-	cantp_timer_log("\t\033[0;36mCAN-TP Sender:\033[0m ");
+	//starting timer N_As
+	cantp_timer_log("\t\033[0;36mCAN-TP Sender:\033[0m (S5.2)");
 	cantp_timer_start(ctx->timer, "N_As", 1000 * CANTP_N_CS_TIMER_MS); fflush(0);
 
 	//Checking if it will be the Last Consecutive Frame
@@ -242,7 +244,7 @@ static inline void cantp_send_cf_afrer_fc(cantp_frame_t *rx_frame,
 	}
 
 	ctx->state = CANTP_STATE_CF_SENDING;
-	printf("\033[0;36mCAN-TP Sender: \033[0;32mSending from\033[0m ID=0x%06x IDt=%d ",
+	printf("\033[0;36mCAN-TP Sender: \033[0;32m(S5.3)Sending from\033[0m ID=0x%06x IDt=%d ",
 			ctx->id, ctx->idt);
 	print_cantp_frame(tx_frame); fflush(0);
 
@@ -343,11 +345,11 @@ static inline void cantp_rx_flow_control_frame(uint32_t id,
 	cantp_frame_t rcvr_tx_frame = { 0 };
 
 	//Stopping N_Bs timer
-	cantp_timer_log("\t\033[0;36mCAN-TP Sender:\033[0m ");
+	cantp_timer_log("\t\033[0;36mCAN-TP Sender:\033[0m (S4.2)");
 	cantp_timer_stop(ctx->timer); fflush(0);
 
 	//starting timer N_Cs
-	cantp_timer_log("\t\033[0;36mCAN-TP Sender:\033[0m ");
+	cantp_timer_log("\t\033[0;36mCAN-TP Sender:\033[0m (S4.3)");
 	cantp_timer_start(ctx->timer, "N_Cs", 1000 * CANTP_N_CS_TIMER_MS);
 
 	//Saving connection parameters sent from the Receiver
@@ -375,10 +377,10 @@ static inline void cantp_rx_flow_control_frame(uint32_t id,
 
 		} break;
 	case CANTP_FC_FLOW_STATUS_WAIT: {
-
+		//TODO: Implementation of CANTP_FC_FLOW_STATUS_WAIT
 		} break;
 	case CANTP_FC_FLOW_STATUS_OVF: {
-
+		//TODO: Implementation of CANTP_FC_FLOW_STATUS_OVF
 		} break;
 	}
 
@@ -399,8 +401,8 @@ static inline void cantp_rcvr_rx_consecutive_frame(uint32_t id,
 				id, ctx->peer_id);
 		return;
 	}
-	printf("\033[0;33m\tCAN-TP Receiver: "
-			"The received ID=0x%06x is correct\033[0m\n", id);
+//	printf("\033[0;33m\tCAN-TP Receiver: "
+//			"The received ID=0x%06x is correct\033[0m\n", id);
 
 	//Stopping N_Cr timer
 	cantp_timer_log("\033[0;33m\tCAN-TP Receiver: \033[0m");
@@ -535,10 +537,10 @@ void cantp_canrx_cb(uint32_t id,
 		} break;
 	case CANTP_FIRST_FRAME: {
 			//First Frame can be received only from the Receiver side
-			printf("\033[0;33mCAN-TP Receiver: \033[1;33mReceived from\033[0m "
+			printf("\033[0;33mCAN-TP Receiver: \033[1;33m(R2.1)Received from\033[0m "
 					"ID=0x%06x IDt=%d DLC=%d ", id, idt, dlc);
 			print_cantp_frame(rx_frame); fflush(0);
-			printf("\033[0;33m\tCAN-TP Receiver:State: \033[1;33m%s\033[0m\n",
+			printf("\033[0;33m\tCAN-TP Receiver: State: \033[1;33m%s\033[0m\n",
 											cantp_state_enum_str[ctx->state]);
 
 			//The receiver can accept a FF only if it is in IDLE state
@@ -552,18 +554,14 @@ void cantp_canrx_cb(uint32_t id,
 		} break;
 	case CANTP_FLOW_CONTROLL: {
 			//Flow Control frame can be received only from the Sender side
-			printf("\033[0;36mCAN-TP Sender: \033[1;33mReceived from\033[0m "
+			printf("\033[0;36mCAN-TP Sender: \033[1;33m(S4.1)Received from\033[0m "
 					"ID=0x%06x IDt=%d DLC=%d ", id, idt, dlc);
 			print_cantp_frame(rx_frame); fflush(0);
-			printf("\t\033[0;36mCAN-TP Sender:State: \033[1;33m%s\033[0m\n",
+
+			printf("\t\033[0;36mCAN-TP Sender: State: \033[1;33m%s\033[0m\n",
 											cantp_state_enum_str[ctx->state]);
 
-//			if (ctx->state == CANTP_STATE_FF_SENT) {
-				cantp_rx_flow_control_frame(id, idt, dlc, &rx_frame, ctx);
-//			} else {
-//				printf("\t\033[0;36mCAN-TP Sender:\033[0m "
-//						"ERROR: Not in a correct State\n");
-//			}
+			cantp_rx_flow_control_frame(id, idt, dlc, &rx_frame, ctx);
 
 		} break;
 	case CANTP_CONSEC_FRAME: {
@@ -571,7 +569,7 @@ void cantp_canrx_cb(uint32_t id,
 			printf("\033[0;33mCAN-TP Receiver: \033[1;33mReceived from\033[0m "
 					"ID=0x%06x IDt=%d DLC=%d ", id, idt, dlc);
 			print_cantp_frame(rx_frame); fflush(0);
-			printf("\033[0;33m\tCAN-TP Receiver:State: \033[1;33m%s\033[0m\n",
+			printf("\033[0;33m\tCAN-TP Receiver: State: \033[1;33m%s\033[0m\n",
 											cantp_state_enum_str[ctx->state]);
 			if (ctx->state == CANTP_STATE_FC_SENT) {
 				cantp_rcvr_rx_consecutive_frame(id, idt, dlc, &rx_frame, ctx);
@@ -594,7 +592,7 @@ int cantp_send	(cantp_rxtx_status_t *ctx,
 //	printf("\033[0;36mCAN-TP Sender:\033[0m "
 //			"Sending ");
 	printf("\033[0;36mCAN-TP Sender: "
-			"\033[0;32mSending from\033[0m ID=0x%06x IDt=%d ", id, idt);
+			"\033[0;32m(S1.1)Sending from\033[0m ID=0x%06x IDt=%d ", id, idt);
 
 
 	if (len <= CANTP_SF_NUM_DATA_BYTES) {
@@ -628,12 +626,15 @@ int cantp_send	(cantp_rxtx_status_t *ctx,
 			txframe.ff.d[i] = data[i];
 		}
 		print_cantp_frame(txframe);
-		cantp_timer_log("\t\033[0;36mCAN-TP Sender: \033[0m");
+
+		cantp_timer_log("\t\033[0;36mCAN-TP Sender:\033[0m (S1.2)");
 		if (cantp_timer_start(ctx->timer, "N_As",
 											1000 * CANTP_N_AS_TIMER_MS) < 0) {
 			res = -1;
 		}; fflush(0);
 		ctx->state = CANTP_STATE_FF_SENDING;
+
+		printf("\t\033[0;36mCAN-TP Sender:\033[0m (S1.3)Sending...\n"); fflush(0);
 		cantp_can_tx_nb(id, idt, 8, txframe.u8);
 	}
 	return res;

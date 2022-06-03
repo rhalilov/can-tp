@@ -8,8 +8,8 @@
 #ifndef _CAN_TP_H_
 #define _CAN_TP_H_
 
-//#define cantp_timer_log printf
-#define cantp_timer_log
+#define cantp_timer_log printf
+//#define cantp_timer_log
 
 #ifndef GENERATE_ENUM
 #define GENERATE_ENUM(ENUM) ENUM,

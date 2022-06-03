@@ -194,7 +194,7 @@ int main(int argc, char **argv)
 	printf("\033[0;35mSender pid = %d\033[0m\n", getpid());
 //	printf("pid = %d\n", pid);
 
-	uint16_t dlen = 64;
+	uint16_t dlen = 24;
 	uint8_t *data = malloc(dlen);
 	for (uint16_t i = 0; i < dlen; i++) {
 		data[i] = (uint8_t)(0xff & i) + 1;
@@ -213,7 +213,6 @@ int main(int argc, char **argv)
 	int semval;
 	do {
 		fake_can_rx_task(&cantp_sndr_state);
-//		printf("------------------------------------\n"); fflush(0);
 		sem_getvalue(sndr_wait_rcvr_sem, &semval);
 	} while (semval == 0);
 
