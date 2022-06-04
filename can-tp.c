@@ -388,10 +388,10 @@ static inline void cantp_rx_flow_control_frame(uint32_t id,
 			cantp_send_cf_afrer_fc(cantp_rx_frame, ctx);
 		} break;
 	case CANTP_FC_FLOW_STATUS_WAIT: {
-		//TODO: Implementation of CANTP_FC_FLOW_STATUS_WAIT
+			//TODO: Implementation of CANTP_FC_FLOW_STATUS_WAIT
 		} break;
 	case CANTP_FC_FLOW_STATUS_OVF: {
-		//TODO: Implementation of CANTP_FC_FLOW_STATUS_OVF
+			//TODO: Implementation of CANTP_FC_FLOW_STATUS_OVF
 		} break;
 	}
 

@@ -22,6 +22,29 @@ static const char *cantp_fc_flow_status_enum_str[] = {
 		FOREACH_CANTP_FC_FLOW_STATUS(GENERATE_STRING)
 };
 
+int cantp_rcvr_params_init(cantp_rxtx_status_t *ctx, uint8_t rx_bs, long st_min_us)
+{
+	ctx->bs_rcvr = rx_bs;
+	if (st_min_us == 0) {
+		ctx->st_rcvr = 0;
+		return 0;
+	}
+	if (st_min_us < 100) {
+		printf("\033[0;31mERROR:\033[0m "
+				"STmin parameter should be more than 100μs\n"); fflush(0);
+		return -1;
+	}
+	if (st_min_us > 9000000) {
+		printf("\033[0;31mERROR:\033[0m "
+				"STmin parameter should be less 900ms\n"); fflush(0);
+		return -1;
+	}
+	if (st_min_us < 900) {
+		ctx->st_rcvr = (uint8_t)(st_min_us / 100) + (uint8_t)0xf0;
+		printf("STmin=%x\n", ctx->st_rcvr);
+	}
+}
+
 void print_cantp_frame(cantp_frame_t cantp_frame)
 {
 	printf("\033[0;32m%s frame\033[0m ",

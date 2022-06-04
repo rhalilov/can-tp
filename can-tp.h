@@ -168,14 +168,6 @@ static inline uint16_t cantp_ff_len_get(cantp_frame_t *cantp_ff)
 	return ((uint16_t)cantp_ff->ff.len_h << 8) | (cantp_ff->ff.len_l);
 }
 
-static inline void cantp_rx_params_init(cantp_rxtx_status_t *ctx,
-											uint8_t rx_bs, uint8_t rx_st)
-{
-	//TODO: Do some checks here
-	ctx->bs_rcvr = rx_bs;
-	ctx->st_rcvr = rx_st;
-}
-
 static inline void cantp_set_timer_ptr(void *timer, cantp_rxtx_status_t *state)
 {
 	state->timer = timer;
@@ -185,13 +177,19 @@ static inline void cantp_set_timer_ptr(void *timer, cantp_rxtx_status_t *state)
 static inline void cantp_set_st_timer_ptr(void *timer, cantp_rxtx_status_t *state)
 {
 	state->st_timer = timer;
-	printf("cantp_timer = %x\n", state->st_timer);
+//	printf("cantp_timer = %x\n", state->st_timer);
 }
 
 static inline void cantp_set_sttimer_ptr(void *timer, cantp_rxtx_status_t *state)
 {
 	state->st_timer = timer;
 }
+
+/*
+ * void cantp_rx_params_init(cantp_rxtx_status_t *ctx, uint8_t rx_bs, uint8_t rx_st);
+ *
+ */
+int cantp_rcvr_params_init(cantp_rxtx_status_t *ctx, uint8_t rx_bs, long st_min_us);
 
 /*
  * int cantp_timer_start(void *timer, char *name,  long tout_us);
