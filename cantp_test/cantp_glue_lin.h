@@ -10,6 +10,5 @@
 
 void cantp_result_cb(int result);
 void cantp_tx_t_cb(cbtimer_t *tim);
-void cantp_tx_st_t_cb(cbtimer_t *tim);
 
 #endif /* _CANTP_GLUE_LIN_H_ */

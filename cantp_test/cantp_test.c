@@ -134,9 +134,9 @@ void receiver_task(uint32_t id, uint8_t idt, uint8_t rx_bs, uint8_t rx_st)
 	cantp_set_timer_ptr(&ctp_rcvr_timer, &ctp_rcvr_state);
 	cbtimer_set_cb(&ctp_rcvr_timer, cantp_rx_t_cb, &ctp_rcvr_state);
 	
-	static cbtimer_t ctp_st_timer;
-	cantp_set_st_timer_ptr(&ctp_st_timer, &ctp_rcvr_state);
-	cbtimer_set_cb(&ctp_st_timer, cantp_tx_st_t_cb, &ctp_rcvr_state);
+//	static cbtimer_t ctp_st_timer;
+//	cantp_set_st_timer_ptr(&ctp_st_timer, &ctp_rcvr_state);
+//	cbtimer_set_cb(&ctp_st_timer, cantp_tx_st_t_cb, &ctp_rcvr_state);
 
 	msync(sndr_wait_rcvr_sem, sizeof(size_t), MS_SYNC);
 	sem_post(sndr_wait_rcvr_sem);
@@ -190,7 +190,7 @@ int main(int argc, char **argv)
 	pid_t pid = fork();
 	if (pid == (pid_t) 0) {
 		//This is the child process.
-		receiver_task(0xbbb, 0, 2, 0);
+		receiver_task(0xbbb, 0, 2, 127);
 		printf("Receiver END\n"); fflush(0);
 		return EXIT_SUCCESS;
 	} else if (pid < (pid_t) 0) {
@@ -212,7 +212,7 @@ int main(int argc, char **argv)
 
 	static cbtimer_t ctp_st_timer;
 	cantp_set_st_timer_ptr(&ctp_st_timer, &cantp_sndr_state);
-	cbtimer_set_cb(&ctp_st_timer, cantp_tx_st_t_cb, &cantp_sndr_state);
+	cbtimer_set_cb(&ctp_st_timer, NULL, &cantp_sndr_state);
 
 	//First wait for Receiver to be initialized
 	sem_wait(sndr_wait_rcvr_sem);

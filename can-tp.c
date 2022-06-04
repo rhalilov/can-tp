@@ -88,11 +88,6 @@ static inline void cantp_send_cf_afrer_cf(cantp_rxtx_status_t *ctx)
 	cantp_can_tx_nb(ctx->id, ctx->idt, 8, tx_frame.u8);
 }
 
-void cantp_tx_st_timer_cb(cantp_rxtx_status_t *ctx)
-{
-	printf("--------CAN-TP cantp_tx_st_timer_cb: \n"); fflush(0);
-}
-
 void cantp_cantx_confirm_cb(cantp_rxtx_status_t *ctx)
 {
 	//The Sender transmits only Single Frame, First Frame and Consecutive Frames
@@ -201,9 +196,8 @@ void cantp_cantx_confirm_cb(cantp_rxtx_status_t *ctx)
 									1000 * CANTP_N_CS_TIMER_MS); fflush(0);
 
 			if (ctx->st_timer_us > 0) {
-				cantp_timer_log("\t\033[0;36mCAN-TP Sender:\033[0m (S6.4)");
-				cantp_timer_start(ctx->st_timer, "STmax", ctx->st_timer_us); fflush(0);
-				cantp_timer_wait_to_expire(ctx->st_timer);
+				cantp_timer_log("\t\033[0;36mCAN-TP Sender:\033[0m (S6.4)"); fflush(0);
+				cantp_usleep(ctx->st_timer_us);
 			}
 			cantp_send_cf_afrer_cf(ctx);
 		} break;

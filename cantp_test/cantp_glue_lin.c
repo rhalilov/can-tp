@@ -74,22 +74,15 @@ int cantp_is_timer_expired(void *timer)
 	return cbtimer_is_expired(t);
 }
 
-void cantp_timer_wait_to_expire(void *timer)
+void cantp_usleep(long tout_us)
 {
-	cbtimer_t *t;
-	cbtimer_wait_to_expire(t);
+	usleep(tout_us);
 }
 
 void cantp_tx_t_cb(cbtimer_t *tim)
 {
 	cantp_rxtx_status_t *ctx = (cantp_rxtx_status_t *)(tim->cb_params);
 	cantp_tx_timer_cb(ctx);
-}
-
-void cantp_tx_st_t_cb(cbtimer_t *tim)
-{
-	cantp_rxtx_status_t *ctx = (cantp_rxtx_status_t *)(tim->cb_params);
-	cantp_tx_st_timer_cb(ctx);
 }
 
 void cantp_timer_stop(void *timer)

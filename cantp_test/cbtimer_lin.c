@@ -33,6 +33,7 @@ void cbtimer_cb(union sigval sev)
 						tim->name,
 //						tim,
 						(long int)tim->timerId);
+		if (tim->cb == NULL) return;
 		tim->cb(tim);
 	}
 }
@@ -110,5 +111,6 @@ int cbtimer_is_expired(cbtimer_t *tim)
 
 void cbtimer_wait_to_expire(cbtimer_t *tim)
 {
+	cbtimer_log("timer %s wait to expire\n", tim->name); cbtimer_flush(0);
 	sem_wait(&tim->sem_expired);
 }

@@ -8,8 +8,8 @@
 #ifndef _CAN_TP_H_
 #define _CAN_TP_H_
 
-#define cantp_timer_log printf
-//#define cantp_timer_log
+//#define cantp_timer_log printf
+#define cantp_timer_log
 
 #ifndef GENERATE_ENUM
 #define GENERATE_ENUM(ENUM) ENUM,
@@ -185,7 +185,7 @@ static inline void cantp_set_timer_ptr(void *timer, cantp_rxtx_status_t *state)
 static inline void cantp_set_st_timer_ptr(void *timer, cantp_rxtx_status_t *state)
 {
 	state->st_timer = timer;
-//	printf("cantp_timer(2) = %x\n", state->timer);
+	printf("cantp_timer = %x\n", state->st_timer);
 }
 
 static inline void cantp_set_sttimer_ptr(void *timer, cantp_rxtx_status_t *state)
@@ -207,7 +207,7 @@ int cantp_is_timer_expired(void *timer);
 /*
  *
  */
-void cantp_timer_wait_to_expire(void *timer);
+void cantp_usleep(long tout_us);
 
 /*
  * void cantp_timer_stop(void *timer);
@@ -333,15 +333,6 @@ void cantp_sndr_tx_done_cb(void);
  *
  */
 void cantp_tx_timer_cb(cantp_rxtx_status_t *ctx);
-
-/*
- * cantp_tx_st_timer_cb(cantp_rxtx_status_t *ctx)
- *
- * Should be called on STmax expire event
- *
- */
-void cantp_tx_st_timer_cb(cantp_rxtx_status_t *ctx);
-
 
 /*
  * void cantp_rx_timer_cb(cantp_rxtx_status_t *ctx)
