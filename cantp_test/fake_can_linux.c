@@ -24,8 +24,8 @@
 #include "fake_can_linux.h"
 #include "cbtimer_lin.h"
 
-#define fake_can_log	printf
-//#define fake_can_log
+//#define fake_can_log	printf
+#define fake_can_log
 
 enum candrv_rx_stat_e {
 	CANLL_RX_STATUS_WAITING = 0,

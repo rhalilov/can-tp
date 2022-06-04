@@ -22,27 +22,51 @@ static const char *cantp_fc_flow_status_enum_str[] = {
 		FOREACH_CANTP_FC_FLOW_STATUS(GENERATE_STRING)
 };
 
-int cantp_rcvr_params_init(cantp_rxtx_status_t *ctx, uint8_t rx_bs, long st_min_us)
+int cantp_rcvr_params_init(cantp_rxtx_status_t *ctx, cantp_rcvr_params_t *params)
 {
-	ctx->bs_rcvr = rx_bs;
-	if (st_min_us == 0) {
-		ctx->st_rcvr = 0;
+	ctx->rcvr_par = params;
+
+	if (params->st_min_us == 0) {
+//		ctx->st_rcvr = 0;
+		ctx->rcvr_par->st_min = 0;
 		return 0;
 	}
-	if (st_min_us < 100) {
+	if (params->st_min_us < 100) {
 		printf("\033[0;31mERROR:\033[0m "
 				"STmin parameter should be more than 100μs\n"); fflush(0);
 		return -1;
 	}
-	if (st_min_us > 9000000) {
+	if (params->st_min_us > 900000) {
 		printf("\033[0;31mERROR:\033[0m "
 				"STmin parameter should be less 900ms\n"); fflush(0);
 		return -1;
 	}
-	if (st_min_us < 900) {
-		ctx->st_rcvr = (uint8_t)(st_min_us / 100) + (uint8_t)0xf0;
-		printf("STmin=%x\n", ctx->st_rcvr);
+	if ( (params->st_min_us > 900) && (params->st_min_us < 1000) ) {
+		if (params->st_min_us >= 950) {
+			params->st_min_us = 1000;
+		} else {
+			params->st_min_us = 900;
+		}
 	}
+	if ( (params->st_min_us >= 1000) && (params->st_min_us <= 127000) ) {
+		ctx->rcvr_par->st_min = params->st_min_us / 1000;
+	}
+	if (params->st_min_us <= 900) {
+//		ctx->st_rcvr = (uint8_t)(st_min_us / 100) + (uint8_t)0xf0;
+		ctx->rcvr_par->st_min = (uint8_t)(params->st_min_us / 100) + (uint8_t)0xf0;
+		printf("STmin=%x\n", ctx->rcvr_par->st_min);
+	}
+	printf("cantp_rcvr_params_init:\n"
+			"block_size = %d\n"
+			"st_min_us = %d\n"
+			"st_min = %x\n"
+			"wft_max = %d\n"
+			"wft_tim_us = %d\n",
+			params->block_size,
+			params->st_min_us,
+			params->st_min,
+			params->wft_max,
+			params->wft_tim_us);fflush(0);
 }
 
 void print_cantp_frame(cantp_frame_t cantp_frame)

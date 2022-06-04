@@ -113,7 +113,7 @@ static void cantp_rx_t_cb(cbtimer_t *tim)
 	cantp_rx_timer_cb(ctx);
 }
 
-void receiver_task(uint32_t id, uint8_t idt, uint8_t rx_bs, long rx_st)
+void receiver_task(uint32_t id, uint8_t idt, cantp_rcvr_params_t *rcvr_params)
 {
 	printf("\033[0;33mInitializing the Receiver side\033[0m ");fflush(0);
 	static cantp_rxtx_status_t ctp_rcvr_state = { 0 };
@@ -128,7 +128,7 @@ void receiver_task(uint32_t id, uint8_t idt, uint8_t rx_bs, long rx_st)
 
 	printf("\033[0;33mReceiver pid = %d \033[0m\n", getpid());
 
-	if (cantp_rcvr_params_init(&ctp_rcvr_state, rx_bs, rx_st) < 0) {
+	if (cantp_rcvr_params_init(&ctp_rcvr_state, rcvr_params) < 0) {
 		return;
 	}
 
@@ -149,8 +149,8 @@ void receiver_task(uint32_t id, uint8_t idt, uint8_t rx_bs, long rx_st)
 	} while (1);
 }
 
-static inline int args_check(int argc, char **argv, uint16_t *tx_len,
-		long *canll_delay, long *st_min, uint8_t *block_size)
+static inline int args_get(int argc, char **argv, uint16_t *tx_len,
+							uint32_t *canll_delay, cantp_rcvr_params_t *params)
 {
 	int argnum = 1;
 	if (argc <= 2) {
@@ -166,17 +166,17 @@ static inline int args_check(int argc, char **argv, uint16_t *tx_len,
 			}
 			if (strcmp("canll_delay", (argv[argnum]+1)) == 0) {
 				*canll_delay = atoi((char *)(argv[argnum+1]));
-				printf("CANLLdelay=%ld\n", *canll_delay);
+				printf("CANLLdelay=%d\n", *canll_delay);
 			} else if (strcmp("st_min", (argv[argnum]+1)) == 0) {
-				*st_min = atoi((char *)(argv[argnum+1]));
-				printf("STmin=%ld\n", *st_min);
+				params->st_min_us = atoi((char *)(argv[argnum+1]));
+				printf("STmin=%d\n", params->st_min_us);
 			} else if (strcmp("block_size", (argv[argnum]+1)) == 0) {
-				*block_size = atoi((char *)(argv[argnum+1]));
-				printf("block_size=%d\n", *block_size);
+				params->block_size = atoi((char *)(argv[argnum+1]));
+				printf("block_size=%d\n", params->block_size);
 			} else if (strcmp("tx_len", (argv[argnum]+1)) == 0) {
-			*tx_len = atoi((char *)(argv[argnum+1]));
-			printf("tx_len=%d\n", *tx_len);
-		}
+				*tx_len = atoi((char *)(argv[argnum+1]));
+				printf("tx_len=%d\n", *tx_len);
+			}
 		} else {
 			printf("\r\nError: wrong parameter '%s'\n", argv[argnum]);
 		}
@@ -203,27 +203,19 @@ static inline int args_check(int argc, char **argv, uint16_t *tx_len,
 
 int main(int argc, char **argv)
 {
-	long canll_delay = 100000;
+	uint32_t canll_delay = 100000;
 	uint16_t tx_len = 24;
 
 	//here are variables defined in shared memory
-	long *st_min = 0;
-	st_min = (long*) mmap(NULL, sizeof(long),
+	cantp_rcvr_params_t *rcvr_params;
+	rcvr_params = (cantp_rcvr_params_t *) mmap(NULL, sizeof(cantp_rcvr_params_t),
 			PROT_READ | PROT_WRITE, MAP_ANONYMOUS | MAP_SHARED, 0, 0);
-	if (st_min == MAP_FAILED) {
+	if (rcvr_params == MAP_FAILED) {
 		printf("Couldn't initialize st_min mapping\n");
 		return EXIT_FAILURE;
 	}
 
-	uint8_t *block_size;
-	block_size = (uint8_t*) mmap(NULL, sizeof(uint8_t),
-			PROT_READ | PROT_WRITE, MAP_ANONYMOUS | MAP_SHARED, 0, 0);
-	if (block_size == MAP_FAILED) {
-		printf("Couldn't initialize block_size mapping\n");
-		return EXIT_FAILURE;
-	}
-
-	if (args_check(argc, argv, &tx_len, &canll_delay, st_min, block_size) < 0) {
+	if (args_get(argc, argv, &tx_len, &canll_delay, rcvr_params) < 0) {
 		return EXIT_FAILURE;
 	}
 
@@ -253,7 +245,7 @@ int main(int argc, char **argv)
 	pid_t pid = fork();
 	if (pid == (pid_t) 0) {
 		//This is the child process.
-		receiver_task(0xbbb, 0, *block_size, *st_min);
+		receiver_task(0xbbb, 0, rcvr_params);
 		printf("Receiver END\n"); fflush(0);
 		msync(rcvr_end_sem, sizeof(size_t), MS_SYNC);
 		sem_post(rcvr_end_sem);

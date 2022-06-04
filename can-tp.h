@@ -139,22 +139,34 @@ typedef struct __attribute__((packed)) {
 	};
 } cantp_frame_t;
 
+//These are local parameters either we are on the role of Receiver or Sender
+typedef struct cantp_rcvr_params_s {
+	uint32_t st_min_us;	//STmin parameter of the Receiver in microseconds
+	uint8_t st_min;		//STmin parameter of the Receiver (that is going to be sent)
+	uint8_t block_size;	//Block Size parameter of the Receiver
+	uint8_t wft_max;	//Maximum number of FC.WAIT frame transmissions (N_WFTmax)
+						//of the Receiver
+	uint32_t wft_tim_us;//Period on which the the FC.WAIT frame will be transmitted
+} cantp_rcvr_params_t;
+
 typedef struct cantp_rxtx_state_s {
 	uint8_t state;
-	uint32_t id;			//CAN-LL Identifier
-	uint32_t peer_id;		//CAN-ID of the other peer that we are communicating with
-	uint8_t idt;			//CAN-LL ID Type (11-bit or 29-bit)
-	uint8_t *data;			//pointer to a buffer of data to be sent/received
-	uint16_t len;			//Number of bytes that should be send/received
-	uint16_t index;			//Bytes already sent/received when using segmented data
-	uint8_t sn;				//Sequence number
-	uint8_t bs_rcvr;		//The number of CF that will be send/received without FC
-	uint8_t bl_index;		//counter related to bs
-	uint8_t st_rcvr;		//SeparationTime minimum
-	uint32_t st_timer_us;	//timer related to st in μs (microseconds)
-	uint8_t error;			//Error code
+	uint32_t id;		//CAN-LL Identifier
+	uint32_t id_pair;	//CAN-ID of the other peer that we are communicating with
+	uint8_t idt;		//CAN-LL ID Type (11-bit or 29-bit)
+	uint8_t *data;		//pointer to a buffer of data to be sent/received
+	uint16_t len;		//Number of bytes that should be send/received
+	uint16_t index;		//Bytes already sent/received when using segmented data
+	uint8_t sn;			//Sequence number
+	uint8_t bs_pair;	//The number of CF that will be send/received without FC
+	uint8_t bl_index;	//counter related to bs
+	uint8_t st_pair;	//SeparationTime minimum of the Receiver (other pair)
+	uint32_t st_tim_us;	//timer related to st in μs (microseconds)
+	uint8_t wft_cntr;	//Counter of FC.WAIT frame transmissions (N_WFTmax)
+	uint8_t error;		//Error code
 	void *timer;
 	void *st_timer;
+	cantp_rcvr_params_t *rcvr_par;
 } cantp_rxtx_status_t;
 
 static inline void cantp_ff_len_set(cantp_frame_t *cantp_ff, uint16_t len)
@@ -186,10 +198,10 @@ static inline void cantp_set_sttimer_ptr(void *timer, cantp_rxtx_status_t *state
 }
 
 /*
- * void cantp_rx_params_init(cantp_rxtx_status_t *ctx, uint8_t rx_bs, uint8_t rx_st);
+ * int cantp_rcvr_params_init(cantp_rxtx_status_t *ctx, cantp_local_params_t *params)
  *
  */
-int cantp_rcvr_params_init(cantp_rxtx_status_t *ctx, uint8_t rx_bs, long st_min_us);
+int cantp_rcvr_params_init(cantp_rxtx_status_t *ctx, cantp_rcvr_params_t *params);
 
 /*
  * int cantp_timer_start(void *timer, char *name,  long tout_us);
