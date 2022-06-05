@@ -76,7 +76,6 @@ enum CANTP_FC_FLOW_STATUS_ENUM {
 #define FOREACH_CANTP_STATE(CANTP_STATE) \
 		CANTP_STATE(CANTP_STATE_IDLE) \
 		CANTP_STATE(CANTP_STATE_SF_SENDING)	/*SF sent to CAN driver and waiting for response */ \
-		CANTP_STATE(CANTP_STATE_SF_SENT) 	/*SF sending successful                          */ \
 		CANTP_STATE(CANTP_STATE_FF_SENDING)	/*SF sent to link layer and waiting for confirma */ \
 		CANTP_STATE(CANTP_STATE_FF_SENT) 	/*First frame sent from the Sender               */ \
 		CANTP_STATE(CANTP_STATE_FF_RCVD) 	/*First frame received from Receiver             */ \
@@ -221,10 +220,10 @@ static inline void cantp_set_sttimer_ptr(void *timer, cantp_rxtx_status_t *state
 }
 
 /*
- * int cantp_rcvr_params_init(cantp_rxtx_status_t *ctx, cantp_local_params_t *params)
+ * int cantp_rcvr_params_init(cantp_rxtx_status_t *ctx, cantp_params_t *par, char *name)
  *
  */
-int cantp_rcvr_params_init(cantp_rxtx_status_t *ctx, cantp_params_t *params);
+int cantp_rcvr_params_init(cantp_rxtx_status_t *ctx, cantp_params_t *par, char *name);
 
 /*
  * int cantp_timer_start(void *timer, char *name,  long tout_us);

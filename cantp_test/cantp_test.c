@@ -119,7 +119,21 @@ void receiver_task(cantp_params_t *rcvr_params)
 
 	printf("\033[0;33mReceiver pid = %d \033[0m\n", getpid());
 
-	if (cantp_rcvr_params_init(&ctp_rcvr_state, rcvr_params) < 0) {
+	msync(rcvr_params, sizeof(cantp_params_t), MS_SYNC);
+	printf("cantp_rcvr_params_init:\n"
+			"block_size = %d\n"
+			"st_min_us = %d\n"
+			"st_min = %x\n"
+			"wft_num = %d\n"
+			"wft_max = %d\n"
+			"wft_tim_us = %d\n",
+			rcvr_params->block_size,
+			rcvr_params->st_min_us,
+			rcvr_params->st_min,
+			rcvr_params->wft_num,
+			rcvr_params->wft_max,
+			rcvr_params->wft_tim_us);fflush(0);
+	if (cantp_rcvr_params_init(&ctp_rcvr_state, rcvr_params, "Receiver") < 0) {
 		return;
 	}
 
@@ -219,6 +233,8 @@ int main(int argc, char **argv)
 		return EXIT_FAILURE;
 	}
 
+	msync(rcvr_params, sizeof(cantp_params_t), MS_SYNC);
+
 	rcvr_start_sem = (sem_t*) mmap(NULL, sizeof(sem_t),
 			PROT_READ | PROT_WRITE, MAP_ANONYMOUS | MAP_SHARED, 0, 0);
 	if (rcvr_start_sem == MAP_FAILED) {
@@ -241,9 +257,9 @@ int main(int argc, char **argv)
 											&cantp_sndr_state, CAN_LL_SENDER);
 
 	cantp_params_t sndr_params;
-	sndr_params.st_min_us = 0;
+	sndr_params.st_min_us = 127000;
 	sndr_params.block_size = 0;
-	if (cantp_rcvr_params_init(&cantp_sndr_state, &sndr_params) < 0) {
+	if (cantp_rcvr_params_init(&cantp_sndr_state, &sndr_params, "Sender") < 0) {
 		return EXIT_FAILURE;
 	}
 
@@ -252,6 +268,7 @@ int main(int argc, char **argv)
 	pid_t pid = fork();
 	if (pid == (pid_t) 0) {
 		//This is the child process.
+		msync(rcvr_params, sizeof(cantp_params_t), MS_SYNC);
 		receiver_task(rcvr_params);
 		printf("Receiver END\n"); fflush(0);
 		msync(rcvr_end_sem, sizeof(size_t), MS_SYNC);
