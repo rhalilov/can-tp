@@ -8,8 +8,8 @@
 #ifndef _CAN_TP_H_
 #define _CAN_TP_H_
 
-//#define cantp_timer_log printf
-#define cantp_timer_log
+#define cantp_timer_log printf
+//#define cantp_timer_log
 
 #ifndef GENERATE_ENUM
 #define GENERATE_ENUM(ENUM) ENUM,
@@ -33,7 +33,7 @@ enum CANTP_N_PCI_TYPE_ENUM {
 
 #define FOREACH_CANTP_RESULT(CANTP_RESULT) \
 	CANTP_RESULT(CANTP_RESULT_N_OK) \
-	CANTP_RESULT(CANTP_RESULT_N_TIMEOUT_A) \
+	CANTP_RESULT(CANTP_RESULT_N_TIMEOUT_As) \
 	CANTP_RESULT(CANTP_RESULT_N_TIMEOUT_Bs) \
 	CANTP_RESULT(CANTP_RESULT_N_TIMEOUT_Cr) \
 	CANTP_RESULT(CANTP_RESULT_N_WRONG_SN) \
@@ -162,6 +162,7 @@ typedef struct sndr_state_s {
 	uint8_t bl_index;	//counter related to bs
 	uint8_t st_pair;	//SeparationTime minimum of the Receiver (other pair)
 	uint32_t st_tim_us;	//timer related to st in μs (microseconds)
+	void *timer;
 	void *st_timer;
 } sndr_state_t;
 
@@ -175,10 +176,10 @@ typedef struct rcvr_state_s {
 	uint8_t block_size;	//Block Size parameter of the Receiver
 	uint8_t bl_index;	//counter related to bs
 	uint8_t wft_cntr;	//Counter of FC.WAIT frame transmissions (N_WFTmax)
+	void *timer;
 } rcvr_state_t;
 
 typedef struct cantp_rxtx_state_s {
-	void *timer;
 	sndr_state_t sndr;
 	rcvr_state_t rcvr;
 	cantp_params_t *params;
@@ -195,12 +196,17 @@ static inline uint16_t cantp_ff_len_get(cantp_frame_t *cantp_ff)
 	return ((uint16_t)cantp_ff->ff.len_h << 8) | (cantp_ff->ff.len_l);
 }
 
-static inline void cantp_set_timer_ptr(void *timer, cantp_rxtx_status_t *state)
+static inline void cantp_set_sndr_timer_ptr(void *timer, cantp_rxtx_status_t *state)
 {
-	state->timer = timer;
+	state->sndr.timer = timer;
 //	printf("cantp_timer(2) = %x\n", state->timer);
 }
 
+static inline void cantp_set_rcvr_timer_ptr(void *timer, cantp_rxtx_status_t *state)
+{
+	state->rcvr.timer = timer;
+//	printf("cantp_timer(2) = %x\n", state->timer);
+}
 static inline void cantp_set_st_timer_ptr(void *timer, cantp_rxtx_status_t *state)
 {
 	state->sndr.st_timer = timer;
@@ -352,19 +358,19 @@ int cantp_rcvr_rx_ff_cb(uint32_t id, uint8_t idt, uint8_t **data, uint16_t len);
 void cantp_sndr_tx_done_cb(void);
 
 /*
- * cantp_tx_timer_cb(cantp_rxtx_status_t *ctx)
+ * void cantp_sndr_timer_cb(cantp_rxtx_status_t *ctx)
  *
  * Should be called on sender timer expire event
  *
  */
-void cantp_tx_timer_cb(cantp_rxtx_status_t *ctx);
+void cantp_sndr_timer_cb(cantp_rxtx_status_t *ctx);
 
 /*
- * void cantp_rx_timer_cb(cantp_rxtx_status_t *ctx)
+ * void cantp_rcvr_timer_cb(cantp_rxtx_status_t *ctx)
  *
- * Should be called on receiver timer expire event
+ * Should be called on sender timer expire event
  */
-void cantp_rx_timer_cb(cantp_rxtx_status_t *ctx);
+void cantp_rcvr_timer_cb(cantp_rxtx_status_t *ctx);
 
 /*
  * can_tp_send(cantp_rxtx_status_t *cantp_ctx,

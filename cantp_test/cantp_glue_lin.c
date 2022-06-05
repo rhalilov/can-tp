@@ -131,10 +131,16 @@ void cantp_usleep(long tout_us)
 	usleep(tout_us);
 }
 
-void cantp_tx_t_cb(cbtimer_t *tim)
+void cantp_sndr_t_cb(cbtimer_t *tim)
 {
 	cantp_rxtx_status_t *ctx = (cantp_rxtx_status_t *)(tim->cb_params);
-	cantp_tx_timer_cb(ctx);
+	cantp_sndr_timer_cb(ctx);
+}
+
+void cantp_rcvr_t_cb(cbtimer_t *tim)
+{
+	cantp_rxtx_status_t *ctx = (cantp_rxtx_status_t *)(tim->cb_params);
+	cantp_rcvr_timer_cb(ctx);
 }
 
 void cantp_timer_stop(void *timer)

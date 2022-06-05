@@ -107,12 +107,6 @@ void cantp_sndr_tx_done_cb(void)
 	sem_post(rcvr_end_sem);
 }
 
-static void cantp_rx_t_cb(cbtimer_t *tim)
-{
-	cantp_rxtx_status_t *ctx = (cantp_rxtx_status_t *)(tim->cb_params);
-	cantp_rx_timer_cb(ctx);
-}
-
 void receiver_task(cantp_params_t *rcvr_params)
 {
 	printf("\033[0;33mInitializing the Receiver side\033[0m ");fflush(0);
@@ -130,8 +124,8 @@ void receiver_task(cantp_params_t *rcvr_params)
 	}
 
 	static cbtimer_t ctp_rcvr_timer;
-	cantp_set_timer_ptr(&ctp_rcvr_timer, &ctp_rcvr_state);
-	cbtimer_set_cb(&ctp_rcvr_timer, cantp_rx_t_cb, &ctp_rcvr_state);
+	cantp_set_rcvr_timer_ptr(&ctp_rcvr_timer, &ctp_rcvr_state);
+	cbtimer_set_cb(&ctp_rcvr_timer, cantp_rcvr_t_cb, &ctp_rcvr_state);
 	
 //	static cbtimer_t ctp_st_timer;
 //	cantp_set_st_timer_ptr(&ctp_st_timer, &ctp_rcvr_state);
@@ -270,8 +264,12 @@ int main(int argc, char **argv)
 	}
 
 	static cbtimer_t ctp_sndr_timer;
-	cantp_set_timer_ptr(&ctp_sndr_timer, &cantp_sndr_state);
-	cbtimer_set_cb(&ctp_sndr_timer, cantp_tx_t_cb, &cantp_sndr_state);
+	cantp_set_sndr_timer_ptr(&ctp_sndr_timer, &cantp_sndr_state);
+	cbtimer_set_cb(&ctp_sndr_timer, cantp_sndr_t_cb, &cantp_sndr_state);
+
+	static cbtimer_t ctp_rcvr_timer;
+	cantp_set_rcvr_timer_ptr(&ctp_rcvr_timer, &cantp_sndr_state);
+	cbtimer_set_cb(&ctp_rcvr_timer, cantp_rcvr_t_cb, &cantp_sndr_state);
 
 	static cbtimer_t ctp_st_timer;
 	cantp_set_st_timer_ptr(&ctp_st_timer, &cantp_sndr_state);
