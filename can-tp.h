@@ -145,7 +145,8 @@ typedef struct cantp_rcvr_params_s {
 	uint8_t idt;		//CAN-LL ID Type (11-bit or 29-bit)
 	uint8_t block_size;	//Block Size parameter of the Receiver
 	uint32_t st_min_us;	//STmin parameter of the Receiver in microseconds
-	uint8_t st_min;		//STmin parameter of the Receiver (that is going to be sent)
+	uint8_t st_min;		//FC.STmin frame parameter of the Receiver
+	uint8_t wft_num;	//Number of FC.WAIT frames that will be transmitted in a raw
 	uint8_t wft_max;	//Maximum number of FC.WAIT frame transmissions (N_WFTmax)
 						//of the Receiver
 	uint32_t wft_tim_us;//Period on which the the FC.WAIT frame will be transmitted
@@ -207,6 +208,7 @@ static inline void cantp_set_rcvr_timer_ptr(void *timer, cantp_rxtx_status_t *st
 	state->rcvr.timer = timer;
 //	printf("cantp_timer(2) = %x\n", state->timer);
 }
+
 static inline void cantp_set_st_timer_ptr(void *timer, cantp_rxtx_status_t *state)
 {
 	state->sndr.st_timer = timer;

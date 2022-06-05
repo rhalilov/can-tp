@@ -167,6 +167,12 @@ static inline int args_get(int argc, char **argv, uint16_t *tx_len,
 			} else if (strcmp("tx_len", (argv[argnum]+1)) == 0) {
 				*tx_len = atoi((char *)(argv[argnum+1]));
 				printf("tx_len=%d\n", *tx_len);
+			} else if (strcmp("wft_tim_us", (argv[argnum]+1)) == 0) {
+				params->wft_tim_us = atoi((char *)(argv[argnum+1]));
+				printf("wft_tim_us=%d\n", params->wft_tim_us);
+			} else if (strcmp("wft_max", (argv[argnum]+1)) == 0) {
+				params->wft_max = atoi((char *)(argv[argnum+1]));
+				printf("wft_max=%d\n", params->wft_max);
 			}
 		} else {
 			printf("\r\nError: wrong parameter '%s'\n", argv[argnum]);

@@ -35,11 +35,34 @@ int cantp_rcvr_params_init(cantp_rxtx_status_t *ctx, cantp_params_t *par)
 				"STmin parameter should be more than 100μs\n"); fflush(0);
 		return -1;
 	}
-	if (ctx->params->st_min_us > 900000) {
-		printf("\033[0;31mERROR:\033[0m "
-				"STmin parameter should be less 900ms\n"); fflush(0);
-		return -1;
+	if ( ctx->params->st_min_us > 127000 ) {
+		//Should be handled by FC.WAIT frame transmissions
+
+		//The BS and STmin parameters of FC frame will be ignored
+		ctx->params->block_size = 0;
+		ctx->params->st_min = 0;
+
+		if (ctx->params->wft_tim_us < 127000) {
+			printf("\033[0;31mERROR:\033[0m "
+				"'wft_tim_us' parameter is less than 127ms.\n"); fflush(0);
+			return -1;
+		}
+		ctx->params->wft_num = ctx->params->st_min_us / ctx->params->wft_tim_us;
+		if (ctx->params->wft_num > ctx->params->wft_max) {
+			printf("\033[0;31mERROR:\033[0m "
+				"The number FC.WAIT frames %d "
+				"needed to achieve STmin=%d is greater than wft_max=%d \n",
+				ctx->params->wft_num, ctx->params->st_min_us, ctx->params->wft_max); fflush(0);
+			return -1;
+		}
+
+		return 0;
 	}
+//	if (ctx->params->st_min_us > 900000) {
+//		printf("\033[0;31mERROR:\033[0m "
+//				"STmin parameter should be less 900ms\n"); fflush(0);
+//		return -1;
+//	}
 	if ( (ctx->params->st_min_us > 900) && (ctx->params->st_min_us < 1000) ) {
 		if (ctx->params->st_min_us >= 950) {
 			ctx->params->st_min_us = 1000;
@@ -54,12 +77,6 @@ int cantp_rcvr_params_init(cantp_rxtx_status_t *ctx, cantp_params_t *par)
 //		ctx->st_rcvr = (uint8_t)(st_min_us / 100) + (uint8_t)0xf0;
 		ctx->params->st_min = (uint8_t)(ctx->params->st_min_us / 100) + (uint8_t)0xf0;
 		printf("STmin=%x\n", ctx->params->st_min);
-	}
-	if ( ctx->params->st_min_us > 127000 ) {
-		printf("\033[0;31mERROR:\033[0m "
-				"STmin parameter should be less 127ms\n"); fflush(0);
-		//TODO: should be handled by FC.WAIT frame transmissions
-		return -1;
 	}
 	printf("cantp_rcvr_params_init:\n"
 			"block_size = %d\n"
@@ -97,7 +114,7 @@ void print_cantp_frame(cantp_frame_t cantp_frame)
 			dataptr = cantp_frame.cf.d;
 		} break;
 	case CANTP_FLOW_CONTROLL: {
-			printf("FlowStatus=%s BlockSize=%d STmin=%x ",
+			printf("FlowStatus=\033[0;33m%s\033[0m BlockSize=%d STmin=%x ",
 					cantp_fc_flow_status_enum_str[cantp_frame.fc.fs],
 					cantp_frame.fc.bs,
 					cantp_frame.fc.st);
