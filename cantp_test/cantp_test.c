@@ -113,15 +113,12 @@ static void cantp_rx_t_cb(cbtimer_t *tim)
 	cantp_rx_timer_cb(ctx);
 }
 
-void receiver_task(uint32_t id, uint8_t idt, cantp_rcvr_params_t *rcvr_params)
+void receiver_task(cantp_params_t *rcvr_params)
 {
 	printf("\033[0;33mInitializing the Receiver side\033[0m ");fflush(0);
 	static cantp_rxtx_status_t ctp_rcvr_state = { 0 };
 
 	long cdrv_rcvr_tx_delay = 1000;
-
-	ctp_rcvr_state.id = id;
-	ctp_rcvr_state.idt = idt;
 
 	fake_can_init(cdrv_rcvr_tx_delay, "\033[0;34mCAN-LL Receiver\033[0m",
 										&ctp_rcvr_state, CAN_LL_RECEIVER);
@@ -150,7 +147,7 @@ void receiver_task(uint32_t id, uint8_t idt, cantp_rcvr_params_t *rcvr_params)
 }
 
 static inline int args_get(int argc, char **argv, uint16_t *tx_len,
-							uint32_t *canll_delay, cantp_rcvr_params_t *params)
+							uint32_t *canll_delay, cantp_params_t *params)
 {
 	int argnum = 1;
 	if (argc <= 2) {
@@ -207,13 +204,16 @@ int main(int argc, char **argv)
 	uint16_t tx_len = 24;
 
 	//here are variables defined in shared memory
-	cantp_rcvr_params_t *rcvr_params;
-	rcvr_params = (cantp_rcvr_params_t *) mmap(NULL, sizeof(cantp_rcvr_params_t),
+	cantp_params_t *rcvr_params;
+	rcvr_params = (cantp_params_t *) mmap(NULL, sizeof(cantp_params_t),
 			PROT_READ | PROT_WRITE, MAP_ANONYMOUS | MAP_SHARED, 0, 0);
 	if (rcvr_params == MAP_FAILED) {
 		printf("Couldn't initialize st_min mapping\n");
 		return EXIT_FAILURE;
 	}
+
+	rcvr_params->id = 0xbbb;
+	rcvr_params->idt = 0;
 
 	if (args_get(argc, argv, &tx_len, &canll_delay, rcvr_params) < 0) {
 		return EXIT_FAILURE;
@@ -240,12 +240,19 @@ int main(int argc, char **argv)
 	fake_can_init(canll_delay, "\033[1;30mCAN-LL Sender\033[0m",
 											&cantp_sndr_state, CAN_LL_SENDER);
 
+	cantp_params_t sndr_params;
+	sndr_params.st_min_us = 0;
+	sndr_params.block_size = 0;
+	if (cantp_rcvr_params_init(&cantp_sndr_state, &sndr_params) < 0) {
+		return EXIT_FAILURE;
+	}
+
 	//Maybe is better to use threads instead of fork()
 	//but someone can improve it if he wants
 	pid_t pid = fork();
 	if (pid == (pid_t) 0) {
 		//This is the child process.
-		receiver_task(0xbbb, 0, rcvr_params);
+		receiver_task(rcvr_params);
 		printf("Receiver END\n"); fflush(0);
 		msync(rcvr_end_sem, sizeof(size_t), MS_SYNC);
 		sem_post(rcvr_end_sem);

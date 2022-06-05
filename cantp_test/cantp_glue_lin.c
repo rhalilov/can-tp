@@ -22,39 +22,44 @@ static const char *cantp_fc_flow_status_enum_str[] = {
 		FOREACH_CANTP_FC_FLOW_STATUS(GENERATE_STRING)
 };
 
-int cantp_rcvr_params_init(cantp_rxtx_status_t *ctx, cantp_rcvr_params_t *params)
+int cantp_rcvr_params_init(cantp_rxtx_status_t *ctx, cantp_params_t *par)
 {
-	ctx->rcvr_par = params;
+	ctx->params = par;
 
-	if (params->st_min_us == 0) {
-//		ctx->st_rcvr = 0;
-		ctx->rcvr_par->st_min = 0;
+	if (ctx->params->st_min_us == 0) {
+		ctx->params->st_min = 0;
 		return 0;
 	}
-	if (params->st_min_us < 100) {
+	if (ctx->params->st_min_us < 100) {
 		printf("\033[0;31mERROR:\033[0m "
 				"STmin parameter should be more than 100μs\n"); fflush(0);
 		return -1;
 	}
-	if (params->st_min_us > 900000) {
+	if (ctx->params->st_min_us > 900000) {
 		printf("\033[0;31mERROR:\033[0m "
 				"STmin parameter should be less 900ms\n"); fflush(0);
 		return -1;
 	}
-	if ( (params->st_min_us > 900) && (params->st_min_us < 1000) ) {
-		if (params->st_min_us >= 950) {
-			params->st_min_us = 1000;
+	if ( (ctx->params->st_min_us > 900) && (ctx->params->st_min_us < 1000) ) {
+		if (ctx->params->st_min_us >= 950) {
+			ctx->params->st_min_us = 1000;
 		} else {
-			params->st_min_us = 900;
+			ctx->params->st_min_us = 900;
 		}
 	}
-	if ( (params->st_min_us >= 1000) && (params->st_min_us <= 127000) ) {
-		ctx->rcvr_par->st_min = params->st_min_us / 1000;
+	if ( (ctx->params->st_min_us >= 1000) && (ctx->params->st_min_us <= 127000) ) {
+		ctx->params->st_min = ctx->params->st_min_us / 1000;
 	}
-	if (params->st_min_us <= 900) {
+	if (ctx->params->st_min_us <= 900) {
 //		ctx->st_rcvr = (uint8_t)(st_min_us / 100) + (uint8_t)0xf0;
-		ctx->rcvr_par->st_min = (uint8_t)(params->st_min_us / 100) + (uint8_t)0xf0;
-		printf("STmin=%x\n", ctx->rcvr_par->st_min);
+		ctx->params->st_min = (uint8_t)(ctx->params->st_min_us / 100) + (uint8_t)0xf0;
+		printf("STmin=%x\n", ctx->params->st_min);
+	}
+	if ( ctx->params->st_min_us > 127000 ) {
+		printf("\033[0;31mERROR:\033[0m "
+				"STmin parameter should be less 127ms\n"); fflush(0);
+		//TODO: should be handled by FC.WAIT frame transmissions
+		return -1;
 	}
 	printf("cantp_rcvr_params_init:\n"
 			"block_size = %d\n"
@@ -62,11 +67,11 @@ int cantp_rcvr_params_init(cantp_rxtx_status_t *ctx, cantp_rcvr_params_t *params
 			"st_min = %x\n"
 			"wft_max = %d\n"
 			"wft_tim_us = %d\n",
-			params->block_size,
-			params->st_min_us,
-			params->st_min,
-			params->wft_max,
-			params->wft_tim_us);fflush(0);
+			ctx->params->block_size,
+			ctx->params->st_min_us,
+			ctx->params->st_min,
+			ctx->params->wft_max,
+			ctx->params->wft_tim_us);fflush(0);
 }
 
 void print_cantp_frame(cantp_frame_t cantp_frame)
