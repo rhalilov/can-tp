@@ -29,10 +29,9 @@ int cantp_rcvr_params_init(cantp_rxtx_status_t *ctx, cantp_params_t *par, char *
 	printf("cantp_rcvr_params_init %s\n", name); fflush(0);
 	ctx->params = par;
 
-//	if (ctx->params->st_min_us == 0) {
-//		ctx->params->st_min = 0;
-////		return 0;
-//	} else
+	if (ctx->params->st_min_us == 0) {
+		ctx->params->st_min = 0;
+	} else
 	if (ctx->params->st_min_us < 100) {
 		printf("\033[0;31mERROR:\033[0m "
 				"STmin=%d parameter should be more than 100μs\n",
@@ -63,7 +62,6 @@ int cantp_rcvr_params_init(cantp_rxtx_status_t *ctx, cantp_params_t *par, char *
 			return -1;
 		}
 //		printf("wft_num=%d\n", ctx->params->wft_num);fflush(0);
-		return 0;
 	} else
 //	if (ctx->params->st_min_us > 900000) {
 //		printf("\033[0;31mERROR:\033[0m "
@@ -85,8 +83,7 @@ int cantp_rcvr_params_init(cantp_rxtx_status_t *ctx, cantp_params_t *par, char *
 		ctx->params->st_min = (uint8_t)(ctx->params->st_min_us / 100) + (uint8_t)0xf0;
 		printf("STmin=%x\n", ctx->params->st_min);
 	}
-	printf("cantp_rcvr_params_init:\n"
-			"block_size = %d\n"
+	printf(	"block_size = %d\n"
 			"st_min_us = %d\n"
 			"st_min = %x\n"
 			"wft_num = %d\n"

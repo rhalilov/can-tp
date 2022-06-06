@@ -516,6 +516,80 @@ static inline void rcvr_rx_consecutive_frame(uint32_t id,
 		return;
 	}
 
+	//TODO: Maybe need to check (ask Session Layer) for sending
+	//a Flow Control Wait frame here. There is no such call in
+	//ISO 15765-2:2016 : Figure 11
+	//Maybe this "Waits" should be implemented based on global timing
+	//parameters of the Receiver which defines times higher than STmin
+	//and N_Cr
+	//We will do that only for testing purposes !!!
+
+	//Checking if Wait Frame is enabled in the Receiver side
+	printf("\t\033[0;33mCAN-TP Receiver:\033[0m wft_num=%d\n", ctx->params->wft_num);
+	if (ctx->params->wft_num > 0) {
+		ctx->rcvr.wft_cntr = 0;
+		do {
+			printf("\t\033[0;33mCAN-TP Receiver:\033[0m wft_cntr=%d\n",
+														ctx->rcvr.wft_cntr);
+
+			//The Flow Control Wait frame should be sent for not more than N_Br
+			//For a timer we will use the value of the STmin which will define
+			//timeout for not more than 900 milliseconds (to not exceed N_Br)
+
+			printf("\t\033[0;33mCAN-TP Receiver:\033[0m "
+					"wft_cntr=%d Sleeping for %dμs \n",
+					ctx->rcvr.wft_cntr, ctx->params->wft_tim_us); fflush(0);
+			cantp_usleep(ctx->params->wft_tim_us);
+			printf("\033[0;33mCAN-TP Receiver:\033[0m Sleeping ended \n"); fflush(0);
+
+			//Now send FC.WAIT frame
+			rcvr_tx_frame.n_pci_t = CANTP_FLOW_CONTROLL;
+			rcvr_tx_frame.fc.fs = CANTP_FC_FLOW_STATUS_WAIT;
+			rcvr_tx_frame.fc.bs = 0;
+			rcvr_tx_frame.fc.st = 0;
+
+			printf("\033[0;33mCAN-TP Receiver: (R9.3)Sending \033[0m");
+			print_cantp_frame(rcvr_tx_frame);
+
+			//(R9.2) N_Ar timer is embedded in blocking sending
+			//Sending FC frame
+			if (cantp_can_tx(ctx->params->id, ctx->params->idt, 8, rcvr_tx_frame.u8,
+											1000 * CANTP_N_AR_TIMER_MS) < 0) {
+				//Abort message reception and issue N_USData.indication
+				//with <N_Result> = N_TIMEOUT_A
+				cantp_result_cb(CANTP_RESULT_N_TIMEOUT_As);
+			}
+
+			cantp_set_rcvr_state(ctx, CANTP_STATE_FC_SENT);
+
+			printf("\t\033[0;33mCAN-TP Receiver:\033[0m "
+					"(R10.1)Received TX confirmationn of Flow Controll frame\n");
+
+			ctx->rcvr.wft_cntr ++;
+
+			//Check if we exceeded the maximum number of Flow Control Wait frames
+			if (ctx->rcvr.wft_cntr > ctx->params->wft_num) {
+//				ctx->rcvr.wft_cntr = 0;
+				//Next is wait for a Consecutive Frame
+				//Starting N_Cr
+				cantp_timer_log("\t\033[0;33mCAN-TP Receiver:\033[0m (R10.3)");
+				cantp_timer_start(ctx->rcvr.timer, "N_Cr", 1000 * CANTP_N_CR_TIMER_MS);
+				break;
+			} else {
+				//Next is an another Flow Control Wait frame
+				//Starting N_Br
+				cantp_timer_log("\t\033[0;33mCAN-TP Receiver:\033[0m (R10.3");
+				cantp_timer_start(ctx->rcvr.timer, "N_Br", 1000 * CANTP_N_BR_TIMER_MS);
+
+			}
+
+			//Check if following is an another Flow Control Wait frame
+			//or Consecutive Frame
+
+		} while (ctx->rcvr.wft_cntr < ctx->params->wft_num);
+
+	}
+
 	//Checking if we (Receiver) need to send Flow Control frame or
 	//wait for next Consecutive Frame from the Sender
 	//First Checking if we need to count blocks at all
@@ -564,69 +638,7 @@ static inline void rcvr_rx_consecutive_frame(uint32_t id,
 		}
 	} //if (ctx->params->block_size > 0)
 
-	//TODO: Maybe need to check (ask Session Layer) for sending
-	//a Flow Control Wait frame here. There is no such call in
-	//ISO 15765-2:2016 : Figure 11
-	//Maybe this "Waits" should be implemented based on global timing
-	//parameters of the Receiver which defines times higher than STmin
-	//and N_Cr
-	//We will do that only for testing purposes !!!
 
-	//Checking if Wait Frame is enabled in the Receiver side
-	if (ctx->params->wft_num > 0) {
-		ctx->rcvr.wft_cntr ++;
-		//Check if we exceeded the maximum number of Flow Control Wait frames
-		if (ctx->rcvr.wft_cntr > ctx->params->wft_num) {
-			ctx->rcvr.wft_cntr = 0;
-			return;
-		}
-		//The Flow Control Wait frame should be sent for not more than N_Br
-		//For a timer we will use the value of the STmin which will define
-		//timeout for not more than 900 milliseconds (to not exceed N_Br)
-
-		printf("\033[0;33mCAN-TP Receiver:\033[0m -------------Sleeping for %dμs \n",
-							ctx->params->wft_tim_us); fflush(0);
-		cantp_usleep(ctx->params->wft_tim_us);
-		printf("\033[0;33mCAN-TP Receiver:\033[0m Sleeping ended \n"); fflush(0);
-
-		//Now send FC.WAIT frame
-		rcvr_tx_frame.n_pci_t = CANTP_FLOW_CONTROLL;
-		rcvr_tx_frame.fc.fs = CANTP_FC_FLOW_STATUS_WAIT;
-		rcvr_tx_frame.fc.bs = 0;
-		rcvr_tx_frame.fc.st = 0;
-
-		printf("\033[0;33mCAN-TP Receiver: (R9.3)Sending \033[0m");
-		print_cantp_frame(rcvr_tx_frame);
-
-		//(R9.2) N_Ar timer is embedded in blocking sending
-		//Sending FC frame
-		if (cantp_can_tx(ctx->params->id, ctx->params->idt, 8, rcvr_tx_frame.u8,
-										1000 * CANTP_N_AR_TIMER_MS) < 0) {
-			//Abort message reception and issue N_USData.indication
-			//with <N_Result> = N_TIMEOUT_A
-			cantp_result_cb(CANTP_RESULT_N_TIMEOUT_As);
-		}
-
-		cantp_set_rcvr_state(ctx, CANTP_STATE_FC_SENT);
-
-		printf("\t\033[0;33mCAN-TP Receiver:\033[0m "
-				"(R10.1)Received TX confirmationn of Flow Controll frame\n");
-
-		//Check if following is an another Flow Control Wait frame
-		//or Consecutive Frame
-		if (ctx->rcvr.wft_cntr == 0) {
-			//Next is wait for a Consecutive Frame
-			//Starting N_Cr
-			cantp_timer_log("\t\033[0;33mCAN-TP Receiver:\033[0m (R10.3");
-			cantp_timer_start(ctx->rcvr.timer, "N_Cr", 1000 * CANTP_N_CR_TIMER_MS);
-		} else {
-			//Next is an another Flow Control Wait frame
-			//Starting N_Br
-			cantp_timer_log("\t\033[0;33mCAN-TP Receiver:\033[0m (R10.3");
-			cantp_timer_start(ctx->rcvr.timer, "N_Br", 1000 * CANTP_N_BR_TIMER_MS);
-		}
-
-	}
 
 
 	//We are waiting for next Consecutive Frame
