@@ -8,8 +8,19 @@
 #ifndef _CAN_TP_H_
 #define _CAN_TP_H_
 
-#define cantp_timer_log printf
-//#define cantp_timer_log
+#include "cantp_config.h"
+
+#if CANTP_LOG >= CANTP_LOG_INFO
+	#define cantp_logi printf
+#else
+	#define cantp_logi
+#endif
+
+#if CANTP_LOG >= CANTP_LOG_DEBUG
+	#define cantp_logd(__fmt, ...) printf("\t"__fmt, ## __VA_ARGS__)
+#else
+	#define cantp_logd
+#endif
 
 #ifndef GENERATE_ENUM
 #define GENERATE_ENUM(ENUM) ENUM,

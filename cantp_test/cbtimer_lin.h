@@ -10,7 +10,7 @@
 
 #include <semaphore.h>	//sem_open(), sem_destroy(), sem_wait()..
 
-#define CBTIMER_LOG 1
+#define CBTIMER_LOG 0
 
 enum cbtimer_status {
 	CBTIMER_RUN = 1,
