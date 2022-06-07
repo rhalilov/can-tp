@@ -24,8 +24,8 @@
 #include "fake_can_linux.h"
 #include "cbtimer_lin.h"
 
-//#define fake_can_log	printf
-#define fake_can_log
+#define fake_can_log(__fmt, ...) printf("\t\t"__fmt, ## __VA_ARGS__)
+//#define fake_can_log
 
 enum candrv_rx_stat_e {
 	CANLL_RX_STATUS_WAITING = 0,
@@ -75,6 +75,7 @@ pthread_t tx_ack_thrd_id;
 
 int fake_can_rx_task(void *params)
 {
+	int loop = 0;
 	fake_can_log("%s fake_can_rx_task PID=%d Waiting to receive data\n",
 				candrv_name, getpid()); fflush(0);
 	fake_can_phy_t can_frame;
@@ -93,7 +94,7 @@ int fake_can_rx_task(void *params)
 		//put the transmission delay
 		usleep(candrv_tx_delay_us);
 
-		//Send back the acknowledge to the transmiter (either Sender or Receiver)
+		//Send back the acknowledge to the transmitter (either Sender or Receiver)
 		uint8_t tx_ack = CANLL_FRAMEt_ACK;
 		ssize_t wlen = fwrite(&tx_ack, 1, 1, tx_stream);
 		fake_can_log("%s fake_can_rx_task PID=%d Sent ACK.\n",
@@ -109,7 +110,6 @@ int fake_can_rx_task(void *params)
 	}
 	fake_can_log("%s fake_can_rx_task PID=%d Done.\n",
 				candrv_name, getpid()); fflush(0);
-
 }
 
 void *fake_can_tx_ack_thread(void *arg)

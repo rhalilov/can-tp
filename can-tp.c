@@ -668,17 +668,18 @@ void cantp_canrx_cb(uint32_t id,
 	switch (rx_frame.n_pci_t) {
 	case CANTP_SINGLE_FRAME: {
 			//Single Frame can be received only from the Receiver
-			cantp_logi("\033[0;36mCAN-TP Sender: \033[1;33mReceived from\033[0m "
-					"ID=0x%06x IDt=%d DLC=%d ", id, idt, dlc);
+			cantp_logi("\033[0;33mCAN-TP Receiver:\033[1;33m "
+					"(R2.1)Received from\033[0m ID=0x%06x IDt=%d DLC=%d ",
+															id, idt, dlc);
 			print_cantp_frame(rx_frame); fflush(0);
+			cantp_set_rcvr_state(ctx, CANTP_STATE_TX_DONE);
 			//present the received data to the Session Layer
 			//(Receiver N_USData.ind)
-			cantp_received_cb(ctx, id, idt,
-					rx_frame.sf.d, rx_frame.sf.len);
+			cantp_received_cb(ctx, id, idt, rx_frame.sf.d, rx_frame.sf.len);
 		} break;
 	case CANTP_FIRST_FRAME: {
 			//First Frame can be received only from the Receiver side
-			cantp_logi("\033[0;33mCAN-TP Receiver: \033[1;33m(R2.1)Received from\033[0m "
+			cantp_logi("\033[0;33mCAN-TP Receiver:\033[1;33m (R2.1)Received from\033[0m "
 					"ID=0x%06x IDt=%d DLC=%d ", id, idt, dlc);
 			print_cantp_frame(rx_frame); fflush(0);
 			cantp_logd("\033[0;33mCAN-TP Receiver: State: \033[1;33m%s\033[0m\n",

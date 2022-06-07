@@ -300,8 +300,10 @@ int main(int argc, char **argv)
 	int semval;
 	do {
 		fake_can_rx_task(&cantp_sndr_state);
+		printf("Waiting for other pair (Receiver) to end-----------------\n");
 		sem_getvalue(rcvr_end_sem, &semval);
 	} while (semval == 0);
+
 
 	sem_wait(rcvr_end_sem);
 	//Stop Receiver's receiving process
