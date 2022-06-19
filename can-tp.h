@@ -8,18 +8,31 @@
 #ifndef _CAN_TP_H_
 #define _CAN_TP_H_
 
-#include "cantp_config.h"
+//#include "cantp_config.h"
+
+#define CANTP_LOG_NONE 0
+#define CANTP_LOG_INFO 1
+#define CANTP_LOG_DEBUG 2
+#define CANTP_LOG_VERBOSE 3
+
+#define CANTP_LOG CANTP_LOG_VERBOSE
 
 #if CANTP_LOG >= CANTP_LOG_INFO
 	#define cantp_logi printf
 #else
-	#define cantp_logi
+	#define cantp_logi(__fmt, ...)
 #endif
 
 #if CANTP_LOG >= CANTP_LOG_DEBUG
-	#define cantp_logd(__fmt, ...) printf("\t"__fmt, ## __VA_ARGS__)
+	#define cantp_logd(__fmt, ...) printf(__fmt, ## __VA_ARGS__)
 #else
-	#define cantp_logd
+	#define cantp_logd(__fmt, ...)
+#endif
+
+#if CANTP_LOG == CANTP_LOG_VERBOSE
+	#define cantp_logv(__fmt, ...) printf(__fmt, ## __VA_ARGS__)
+#else
+	#define cantp_logv(__fmt, ...)
 #endif
 
 #ifndef GENERATE_ENUM
@@ -98,7 +111,8 @@ enum CANTP_FC_FLOW_STATUS_ENUM {
 		CANTP_STATE(CANTP_STATE_CF_SENDING)	/*CF sent to link layer but TX is not confirmed  */ \
 		CANTP_STATE(CANTP_STATE_CF_SENT) 	/*CF sent. Next will send another CF*/ \
 		CANTP_STATE(CANTP_STATE_CF_FC_WAIT)	/*CF sent. Waiting for FC frame */ \
-		CANTP_STATE(CANTP_STATE_TX_DONE)
+		CANTP_STATE(CANTP_STATE_TX_DONE) \
+		CANTP_STATE(CANTP_STATE_RX_DONE)
 
 enum CANTP_STATE_ENUM {
 		FOREACH_CANTP_STATE(GENERATE_ENUM)
@@ -149,6 +163,21 @@ typedef struct __attribute__((packed)) {
 	};
 } cantp_frame_t;
 
+typedef struct __attribute__((packed)) {
+	union {
+		uint32_t fir;
+		struct {
+			uint32_t dlc:4;	//number of data bytes in message
+			uint32_t :2;	//reserved
+			uint32_t rtr:1;	//Remote Transmission Request
+			uint32_t idt:1;	//ID type(Frame Format): 0: 11bit or 1: 29 bit
+			uint32_t :24;
+		};
+	};
+	uint32_t id;			//CAN ID
+		uint8_t data_u8[8];
+} cantp_can_frame_t;
+
 //These are local parameters either we are on the role of Receiver or Sender
 typedef struct cantp_rcvr_params_s {
 	uint32_t id;		//CAN-LL Identifier
@@ -164,6 +193,7 @@ typedef struct cantp_rcvr_params_s {
 
 typedef struct sndr_state_s {
 	uint8_t state;
+	void *state_sem;
 	uint8_t *data;		//pointer to a buffer of data to be sent/received
 	uint16_t len;		//Number of bytes that should be send/received
 	uint16_t index;		//Bytes already sent/received when using segmented data
@@ -194,6 +224,7 @@ typedef struct cantp_rxtx_state_s {
 	sndr_state_t sndr;
 	rcvr_state_t rcvr;
 	cantp_params_t *params;
+	void *cb_ctx;
 } cantp_rxtx_status_t;
 
 static inline void cantp_ff_len_set(cantp_frame_t *cantp_ff, uint16_t len)
@@ -209,8 +240,8 @@ static inline uint16_t cantp_ff_len_get(cantp_frame_t *cantp_ff)
 
 static inline void cantp_set_sndr_timer_ptr(void *timer, cantp_rxtx_status_t *state)
 {
+	cantp_logv("\t\tcantp_set_sndr_timer_ptr (%p)\n", timer); fflush(0);
 	state->sndr.timer = timer;
-//	printf("cantp_timer(2) = %x\n", state->timer);
 }
 
 static inline void cantp_set_rcvr_timer_ptr(void *timer, cantp_rxtx_status_t *state)
@@ -259,6 +290,25 @@ void cantp_usleep(long tout_us);
 void cantp_timer_stop(void *timer);
 
 /*
+ *
+ *
+ */
+int cantp_sndr_state_sem_take(cantp_rxtx_status_t *ctx, uint32_t tout_us);
+
+/*
+ *
+ *
+ */
+void cantp_sndr_state_sem_give(cantp_rxtx_status_t *ctx);
+
+/*
+ *
+ *
+ *
+ */
+int cantp_can_rx(cantp_can_frame_t *rx_frame, uint32_t tout_us);
+
+/*
  * int cantp_can_tx_nb(uint32_t id, uint8_t idt, uint8_t dlc, uint8_t *data)
  *
  * Transmits a CAN Frame in none blocking mode
@@ -287,7 +337,7 @@ int cantp_can_tx(uint32_t id, uint8_t idt, uint8_t dlc, uint8_t *data, long tout
 void cantp_cantx_confirm_cb(cantp_rxtx_status_t *ctx);
 
 /*
- * void cantp_result_cb(int result)
+ * void cantp_sndr_result_cb(int result)
  *
  * ISO 15765-2:2016 Sender N_USData.con
  *
@@ -300,7 +350,7 @@ void cantp_cantx_confirm_cb(cantp_rxtx_status_t *ctx);
  * and are defined by ISO 15765-2:2016 8.3.7 <N_Result>
  *
  */
-void cantp_result_cb(int result);
+void cantp_sndr_result_cb(int result);
 
 /*
  * void cantp_received_cb(cantp_rxtx_status_t *ctx,
@@ -385,18 +435,37 @@ void cantp_sndr_timer_cb(cantp_rxtx_status_t *ctx);
 void cantp_rcvr_timer_cb(cantp_rxtx_status_t *ctx);
 
 /*
- * can_tp_send(cantp_rxtx_status_t *cantp_ctx,
- * 				uint32_t id,
- * 				uint8_t idt,
- * 				uint8_t *data,
- * 				uint16_t len)
+ * void cantp_sndr_wait_tx_done(cantp_rxtx_status_t *ctx, uint32_t tout_us)
  *
  */
-int cantp_send(cantp_rxtx_status_t *ctx,
-				uint32_t id,
-				uint8_t idt,
-				uint8_t *data,
-				uint16_t len);
+int cantp_sndr_wait_tx_done(cantp_rxtx_status_t *ctx, uint32_t tout_us);
+
+/*
+ *
+ *
+ */
+void cantp_rx_task(void *arg);
+
+/*
+ *
+ *
+ *
+ */
+void cantp_sndr_task(void *arg);
+
+/*
+ * cantp_send_nb(	cantp_rxtx_status_t *cantp_ctx,
+ * 					uint32_t id,
+ * 					uint8_t idt,
+ * 					uint8_t *data,
+ * 					uint16_t len)
+ *
+ */
+void cantp_send(	cantp_rxtx_status_t *ctx,
+					uint32_t id,
+					uint8_t idt,
+					uint8_t *data,
+					uint16_t len);
 
 /*
  * void print_cantp_frame(cantp_frame_t cantp_frame)

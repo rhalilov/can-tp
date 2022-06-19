@@ -47,7 +47,7 @@ void fake_canrx_cb(uint32_t id, uint8_t idt, uint8_t dlc, uint8_t *data, void *p
 	cantp_canrx_cb(id, idt, dlc, data, params);
 }
 
-void cantp_result_cb(int result)
+void cantp_sndr_result_cb(int result)
 {
 	printf("CAN-TP: Received result: ");
 	if (result == CANTP_RESULT_N_OK) {
