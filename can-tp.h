@@ -281,7 +281,7 @@ int cantp_is_timer_expired(void *timer);
 /*
  *
  */
-void cantp_usleep(long tout_us);
+void cantp_usleep(uint32_t tout_us);
 
 /*
  * void cantp_timer_stop(void *timer);
