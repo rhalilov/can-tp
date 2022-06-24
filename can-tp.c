@@ -321,10 +321,6 @@ static inline void sndr_send_cf_afrer_fc(cantp_frame_t *rx_frame,
 			ctx->params->id, ctx->params->idt, 8);
 	print_cantp_frame(tx_frame); fflush(0);
 
-	cantp_logi("--------------delay------------"); fflush(0);
-	cantp_usleep(10000);
-	cantp_logi("--------------delay------------"); fflush(0);
-
 	cantp_can_tx_nb(ctx->params->id, ctx->params->idt, 8, tx_frame.u8);
 	//wait for transmission to be confirmed cantp_cantx_confirm_cb()
 }
@@ -765,7 +761,7 @@ void cantp_rx_task(void *arg)
 
 	cantp_can_frame_t rx_frame;
 	while (1) {
-	cantp_can_rx(&rx_frame, 0);
+		cantp_can_rx(&rx_frame, 0);
 		//TODO: follow the Receiver and Sender status to multiplex the received frame
 		//First we need to understand the type of the frame so that we can filter it
 		//and direct it to Sender or Receiver

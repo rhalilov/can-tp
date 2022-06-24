@@ -15,7 +15,7 @@
 #define CANTP_LOG_DEBUG 2
 #define CANTP_LOG_VERBOSE 3
 
-#define CANTP_LOG CANTP_LOG_VERBOSE
+#define CANTP_LOG CANTP_LOG_INFO
 
 #if CANTP_LOG >= CANTP_LOG_INFO
 	#define cantp_logi printf
