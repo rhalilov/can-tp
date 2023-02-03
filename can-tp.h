@@ -15,7 +15,7 @@
 #define CANTP_LOG_DEBUG 2
 #define CANTP_LOG_VERBOSE 3
 
-#define CANTP_LOG CANTP_LOG_INFO
+#define CANTP_LOG CANTP_LOG_DEBUG
 
 #if CANTP_LOG >= CANTP_LOG_INFO
 	#define cantp_logi printf
@@ -227,6 +227,12 @@ typedef struct cantp_rxtx_state_s {
 	void *cb_ctx;
 } cantp_rxtx_status_t;
 
+/*
+ * int cantp_rcvr_params_init(cantp_rxtx_status_t *ctx, cantp_params_t *par, char *name)
+ *
+ */
+int cantp_rcvr_params_init(cantp_rxtx_status_t *ctx, cantp_params_t *par, char *name);
+
 static inline void cantp_ff_len_set(cantp_frame_t *cantp_ff, uint16_t len)
 {
 	cantp_ff->ff.len_h = CANTP_FF_LEN_H(len);
@@ -262,12 +268,6 @@ static inline void cantp_set_sttimer_ptr(void *timer, cantp_rxtx_status_t *state
 }
 
 /*
- * int cantp_rcvr_params_init(cantp_rxtx_status_t *ctx, cantp_params_t *par, char *name)
- *
- */
-int cantp_rcvr_params_init(cantp_rxtx_status_t *ctx, cantp_params_t *par, char *name);
-
-/*
  * int cantp_timer_start(void *timer, char *name,  long tout_us);
  *
  */
@@ -288,6 +288,15 @@ void cantp_usleep(uint32_t tout_us);
  *
  */
 void cantp_timer_stop(void *timer);
+
+/*
+ *
+ *
+ */
+static inline void cantp_set_sndr_state_sem(void *sem, cantp_rxtx_status_t *state)
+{
+	state->sndr.state_sem = (void *)sem;
+}
 
 /*
  *
